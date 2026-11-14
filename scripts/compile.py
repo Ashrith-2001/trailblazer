@@ -15,6 +15,7 @@ import sys
 import threading
 import time
 import webbrowser
+import zipfile
 from http.server import SimpleHTTPRequestHandler
 from pathlib import Path
 from socketserver import TCPServer
@@ -286,6 +287,84 @@ class TraceCompiler:
         return out_file
 
 
+def create_trace_bundle(trace_path: Path, html_path: Path, out_zip: Optional[Path] = None) -> Path:
+    """Exports self-contained .tbz.zip bundle containing HTML, trace.json, and metadata."""
+    if not out_zip:
+        out_zip = trace_path.parent / f"{trace_path.parent.name or 'trace'}.tbz.zip"
+
+    with zipfile.ZipFile(out_zip, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.write(html_path, arcname="index.html")
+        zf.write(trace_path, arcname="trace.json")
+        manifest = {
+            "generator": "Trailblazer",
+            "version": SCHEMA_VERSION,
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "source_trace": trace_path.name
+        }
+        zf.writestr("manifest.json", json.dumps(manifest, indent=2))
+
+    return out_zip
+
+
+def scan_and_build_dashboard(scan_dir: Path, template_path: Path, out_file: Optional[Path] = None) -> Path:
+    """Scans scan_dir recursively for all trace.json files and compiles a sessions dashboard."""
+    traces_meta = []
+
+    for trace_file in scan_dir.glob("**/trace.json"):
+        try:
+            data = json.loads(trace_file.read_text(encoding="utf-8"))
+            issue = data.get("issue", {})
+            summary = data.get("summary", {})
+            ev = data.get("evidence", {})
+            trail = data.get("trail", [])
+
+            html_candidate = trace_file.parent / "index.html"
+            report_path = str(html_candidate.resolve()) if html_candidate.exists() else "#"
+
+            traces_meta.append({
+                "issueId": issue.get("id", ""),
+                "title": issue.get("title", trace_file.parent.name),
+                "category": issue.get("category", "bug"),
+                "problem": summary.get("problem", ""),
+                "rootCause": summary.get("rootCause", ""),
+                "evidenceLevel": ev.get("level", "inferred"),
+                "confidence": ev.get("confidence", 0.9),
+                "stopCount": len(trail),
+                "reportPath": report_path
+            })
+        except Exception as e:
+            continue
+
+    if not out_file:
+        out_file = scan_dir / "dashboard.html"
+
+    template_content = template_path.read_text(encoding="utf-8")
+    payload = json.dumps(traces_meta, indent=2, ensure_ascii=False)
+    rendered = template_content.replace("/*__DASHBOARD_DATA__*/", payload)
+    out_file.write_text(rendered, encoding="utf-8")
+    return out_file
+
+
+def run_prefilter_search(repo_path: Path, query: str) -> List[Dict[str, Any]]:
+    """Runs zero-token local regex/grep search on repo clone to isolate candidate functions."""
+    results = []
+    try:
+        cmd = ["git", "-C", str(repo_path), "grep", "-n", "-I", "-E", "-e", query]
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
+        lines = proc.stdout.splitlines()[:25]  # Limit to 25 hits to protect context
+        for l in lines:
+            parts = l.split(":", 2)
+            if len(parts) >= 3:
+                results.append({
+                    "file": parts[0],
+                    "line": int(parts[1]) if parts[1].isdigit() else 0,
+                    "content": parts[2].strip()
+                })
+    except Exception as e:
+        pass
+    return results
+
+
 def find_free_port(start_port: int, max_attempts: int = 50) -> int:
     for port in range(start_port, start_port + max_attempts):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -323,7 +402,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Trailblazer CLI: Validate, compile, and serve issue investigation reports."
     )
-    parser.add_argument("trace_json", type=str, help="Path to trace.json file")
+    parser.add_argument("trace_json", type=str, nargs="?", default=None, help="Path to trace.json file")
     parser.add_argument(
         "--repo",
         type=str,
@@ -346,8 +425,38 @@ def main():
     parser.add_argument("--serve", action="store_true", help="Launch background/local server and open in browser")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"Starting port for server (default {DEFAULT_PORT})")
     parser.add_argument("--no-open", action="store_true", help="Do not automatically open browser when serving")
+    parser.add_argument("--bundle", action="store_true", help="Package trace and report into shareable .tbz.zip archive")
+    parser.add_argument("--dashboard", type=str, nargs="?", const=".tbz", default=None, help="Scan directory (default .tbz) and build sessions dashboard")
+    parser.add_argument("--prefilter", type=str, default=None, help="Run zero-token regex search on repository clone")
 
     args = parser.parse_args()
+    script_dir = Path(__file__).resolve().parent
+
+    # Prefilter Mode
+    if args.prefilter:
+        repo_target = Path(args.repo).resolve() if args.repo else Path.cwd()
+        hits = run_prefilter_search(repo_target, args.prefilter)
+        print(f"\n{bold(cyan(f'🔍 Zero-token search results for: \"{args.prefilter}\" in {repo_target}'))}")
+        for h in hits:
+            print(f"  {green(h['file'])}:{yellow(str(h['line']))}  {h['content']}")
+        print(f"\nTotal matches: {len(hits)}")
+        sys.exit(0)
+
+    # Dashboard Mode
+    if args.dashboard:
+        dash_scan = Path(args.dashboard).resolve()
+        dash_template = script_dir.parent / "assets" / "dashboard.html"
+        dash_out = dash_scan / "dashboard.html"
+        built_dash = scan_and_build_dashboard(dash_scan, dash_template, dash_out)
+        print(f"\n{green('✔ Compiled session dashboard:')} {bold(str(built_dash))}")
+        if args.serve:
+            port = find_free_port(args.port)
+            serve_directory(dash_scan, port=port, auto_open=not args.no_open)
+        sys.exit(0)
+
+    if not args.trace_json:
+        parser.print_help()
+        sys.exit(2)
 
     trace_path = Path(args.trace_json).resolve()
     if not trace_path.exists():
@@ -395,6 +504,9 @@ def main():
     try:
         html_out = compiler.compile(trace_data)
         print(f"{green('✔ Compiled visualization report:')} {bold(str(html_out))}")
+        if args.bundle:
+            bundle_out = create_trace_bundle(trace_path, html_out)
+            print(f"{green('✔ Created shareable bundle archive:')} {bold(str(bundle_out))}")
     except Exception as exc:
         print(f"{red('Compilation error:')} {exc}", file=sys.stderr)
         sys.exit(2)

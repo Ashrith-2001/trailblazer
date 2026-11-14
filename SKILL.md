@@ -1,79 +1,165 @@
 ---
 name: trailblazer
-description: Trace open source issues from symptom to source code root cause. Explains assigned issues through a verified, tabbed local dashboard (Executive Summary, Codebase Map, Interaction Flow, Annotated Code Trail, and Invariant Change Blueprint). Zero-npm dependency, verifiable against git history. Use whenever asked to explore, investigate, or explain an issue or bug report.
+description: Autonomously investigate a codebase question, bug, or design topic — like a senior engineer doing a deep read — and produce a verified, tabbed interactive HTML report (Story, Map, Flow, Code, Your change). Point it at a repo and a question; it reads the code, runs git/grep, builds evidence, writes trace.json, and serves the dashboard. Use whenever asked to explore, investigate, explain, or document an issue, bug report, or design question.
 ---
 
 # Trailblazer
 
-Trailblazer empowers engineers to understand a complex codebase issue in minutes. Instead of guessing or dumping hundreds of lines of code into conversation, you conduct a focused, verifiable investigation, record findings in `.tbz/<issue-id>/trace.json`, and compile an interactive, self-contained visual report.
+**You are the investigation engine.** When a user asks you to investigate anything about a codebase — a bug, a design question, a confusing code path — you:
+
+1. Read the code and run shell commands autonomously (grep, git log, file reads)
+2. Build evidence through direct observation, not assumption
+3. Write your structured findings into `.tbz/<issue-id>/trace.json`
+4. Compile and serve an interactive HTML dashboard — the user never touches the JSON
+
+The user's only job is to point you at the repo and ask the question. You do the rest.
 
 ---
 
-## Operating Principles & Token Optimization
+## Trigger Phrases
 
-1. **Pre-filter Locally (Zero-Token Search)**
-   - Use `git grep -n`, `rg`, or `git log --oneline` to pinpoint candidate lines and symbols before reading files.
-   - Do not dump entire 500+ line files into context. Read only targeted line ranges around the candidate functions.
-2. **Strict Invariant Guardrails**
-   - Never recommend "loosening" or "ignoring" error checks without declaring what invariants must be maintained.
-   - Separate verified claims from reasoned inferences (`evidence.level`).
-3. **Clean Separation of Concerns**
-   - The agent writes **data** (`trace.json`). The agent **never** writes page HTML.
-   - The standalone `scripts/compile.py` validates the schema and compiles `assets/template.html`.
-4. **Preserve Repository Integrity**
-   - Never commit `.tbz/` to git history. Trailblazer data stays local in the developer's working directory.
-   - Do not open PRs, push branches, or comment on issues unless specifically directed by the user.
+Activate this skill when the user says any of:
+- "investigate …"
+- "trace …"
+- "explain how X works in this repo"
+- "what's causing …"
+- "document this issue"
+- "why does … happen"
+- "walk me through …"
 
 ---
 
-## Investigation Workflow
+## Operating Principles
 
-### Phase 1: Input & Issue Intake
-Accept any of the following input formats:
-- Direct issue URL (GitHub, GitLab, Jira, etc.)
-- Issue reference number (e.g. `#142` or `142` within an active git clone)
-- Pasted issue description or stack trace
+1. **You generate `trace.json` — it is your output, not user input.**
+   The user never creates or edits `trace.json`. You write it after completing the investigation.
 
-Use the appropriate CLI if available (`gh issue view <num> --json title,body,comments`) or read issue text. Extract:
-- Core symptom and failure conditions
-- Stack traces, error codes, and referenced symbols
-- Issue category: `bug`, `flaky-test`, `feature`, `performance`, `security`, `refactor`, or `docs`
+2. **Pre-filter before reading (zero-token search)**
+   Before opening any file, run:
+   ```bash
+   git grep -n "<symbol>" -- "*.py" "*.ts" "*.go"
+   git log --oneline --all --follow -- <file>
+   ```
+   Only then open the specific line ranges that matter.
 
-### Phase 2: Repository Orientation & AI Policy Radar
-- Check for existing cache in `.tbz/repo-cache.json` to reuse orientation metadata.
-- If fresh: inspect governance files (`CONTRIBUTING.md`, `README.md`, `.github/copilot-instructions.md`, `AGENTS.md`) for:
-  - Project testing patterns (e.g., unit test runners, isolated vs e2e commands)
-  - AI policy guidelines (`allowed`, `restricted`, `prohibited`, or `unspecified`)
-- Store the AI policy findings in `aiPolicy`.
+3. **Cite exact evidence, never paraphrase**
+   Every claim in `trace.json` must be backed by a file path, line number, and snippet from the actual current commit. If you cannot verify a claim, mark it `"level": "inferred"` and say why.
 
-### Phase 3: Trace Construction (3 to 6 Stops)
-- Trace the sequence from the initial entry point to where the behavior goes wrong:
-  - `entry`: Where user/external trigger arrives (CLI command, HTTP handler, event hook)
-  - `transit`: Intermediate routing or state evaluation
-  - `origin`: The precise function or conditional where the defect originates
-  - `patch`: The exact location where the fix should be introduced
-- For each stop, note:
-  - `file` and exact line numbers (`lineStart`, `lineEnd`)
-  - Precise code snippet and pointer notes
-  - 3-tier explanation: `simple` (plain English), `detailed` (technical mechanism), `deep` (architectural context or historical reason)
+4. **Separate problems from fixes**
+   Name what is broken and where. The "Your change" tab tells the engineer what to do — Trailblazer does not write the fix.
 
-### Phase 4: Verification & Reproduction
-- Attempt an isolated reproduction or inspect existing test cases.
-- Classify reproduction level:
-  - `reproduced-real`: Executed project's native test command and observed exact failure.
-  - `reproduced-isolated`: Ran a standalone minimal script or unit test reproducing the mechanism.
-  - `static-analysis`: Confirmed exclusively via static code and commit analysis.
-  - `inferred`: Plausible mechanism deduced from documentation and logs without live execution.
+5. **Never commit `.tbz/` to git**
+   Add `.tbz/` to `.git/info/exclude` in the target repo automatically.
 
-### Phase 5: Emit `trace.json`
-- Follow `references/trace-schema.md` strictly.
-- Write output to `.tbz/<issue-id>/trace.json`.
+---
 
-### Phase 6: Compile & Launch
-Run the validator and compiler from the repository root:
+## Full Investigation Workflow
+
+### Step 1 — Understand the question
+Parse the user's prompt. Extract:
+- The **question or symptom** (e.g. "Why do CSX-linked tenants always hit NotImplementedError?")
+- The **repo path** (current directory by default)
+- An **issue ID** slug for the output directory (e.g. `dual-routing-review`)
+
+### Step 2 — Orient yourself in the repo
 ```bash
-python3 <trailblazer-path>/scripts/compile.py .tbz/<issue-id>/trace.json --repo . --serve
+ls -1                        # top-level shape
+cat README.md | head -60     # project summary
+git log --oneline -10        # recent changes
+```
+Check for AI policy in `CONTRIBUTING.md`, `AGENTS.md`, `.github/copilot-instructions.md`.
+
+### Step 3 — Locate the relevant code (zero-token prefilter)
+```bash
+git grep -n "ClassName\|function_name\|ErrorMessage" -- "*.py"
+git log --oneline --all -- path/to/file.py
+```
+Never read a whole file. Read only the pinpointed line ranges.
+
+### Step 4 — Build a 3–6 stop causal chain
+Trace execution from trigger → routing → decision point → failure → where to fix:
+
+| Stop type | What it means |
+|---|---|
+| `entry` | Where the user action or request arrives |
+| `transit` | Routing, middleware, factory, dependency injection |
+| `origin` | The exact line where the wrong behaviour starts |
+| `patch` | Where the correct fix must be inserted |
+
+For each stop, capture:
+- `file`, `lineStart`, `lineEnd`
+- Exact code snippet (copy verbatim from the file at current HEAD)
+- Three levels of explanation: `simple`, `detailed`, `deep`
+
+### Step 5 — Verify claims
+Try to reproduce or find test coverage:
+- `reproduced-real` — ran the project's own test command and saw the failure
+- `reproduced-isolated` — wrote a minimal standalone script that shows the mechanism
+- `static-analysis` — confirmed via reading code + git history only
+- `inferred` — logical deduction; no code run
+
+Mark every unverifiable claim explicitly.
+
+### Step 6 — Write `trace.json`
+Create the output directory and write the file:
+```bash
+mkdir -p .tbz/<issue-id>
+```
+Then write `.tbz/<issue-id>/trace.json` following `references/trace-schema.md` exactly.
+
+**Do not ask the user to write this file. You write it.**
+
+### Step 7 — Compile and serve
+```bash
+python3 <trailblazer-root>/scripts/compile.py .tbz/<issue-id>/trace.json --repo . --serve
+```
+- Fix any schema errors, then rerun.
+- Tell the user: "Dashboard is live at http://127.0.0.1:4200/"
+- Add `.tbz/` to `.git/info/exclude` if not already there.
+
+---
+
+## Output Format (what to say to the user)
+
+After serving, give the user a short summary in this shape:
+
+```
+✔ Investigation complete
+
+The problem: <one sentence>
+The cause:   <one sentence, cite file:line>
+The fix:     <one sentence, cite file:line>
+
+Dashboard → http://127.0.0.1:4200/
+Trace file → .tbz/<issue-id>/trace.json
 ```
 
-- If errors are raised, adjust `trace.json` and re-compile.
-- Ensure `.tbz/` is added to `.git/info/exclude` to avoid polluting the target repo's git status.
+Then stop. Do not dump the whole trace.json into chat.
+
+---
+
+## Schema Quick Reference
+
+The full schema is in `references/trace-schema.md`. Key top-level fields:
+
+```json
+{
+  "issue": { "id", "title", "url", "category", "tags" },
+  "summary": { "problem", "cause", "fix", "reproductionLevel" },
+  "codeMap": [ { "repo", "paths": [ { "path", "role", "onTrail" } ] } ],
+  "trail": [ { "stop", "label", "file", "lineStart", "lineEnd", "snippet", "pointer", "explain": { "simple", "detailed", "deep" } } ],
+  "flow": { "actors": [], "steps": [ { "from", "to", "label", "stepType" } ] },
+  "yourChange": { "needsChange": [], "noChange": [], "keepChecking": [], "allowToVary": [], "mustNotBreak": [], "firstThing", "testToExtend" },
+  "evidence": { "level", "notes": [] },
+  "aiPolicy": { "status", "source", "notes" }
+}
+```
+
+---
+
+## Important Constraints
+
+- Never point `trailblazer_validate` at a source code file — it validates `trace.json` only
+- Never ask the user to create `trace.json` — you create it
+- Never read entire large files — always grep first, read line ranges second
+- Always cite git commit hash when referencing historical reasons (`git log --follow -1 -- <file>`)
