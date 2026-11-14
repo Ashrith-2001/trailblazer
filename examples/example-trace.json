@@ -1,0 +1,215 @@
+{
+  "version": "1.0.0",
+  "repository": "github.com/nova-runtime/nova-engine",
+  "issue": {
+    "id": "142",
+    "url": "https://github.com/nova-runtime/nova-engine/issues/142",
+    "title": "Stale job lock prevents worker from draining pending queue after network partition",
+    "category": "bug",
+    "commit": "c4d189e821045f94b2938a19de010472bb582c31"
+  },
+  "summary": {
+    "problem": "Worker processes stop accepting jobs after reconnecting following a momentary Redis network disconnect.",
+    "rootCause": "The heartbeat lock lease timestamp is not reset on reconnect, causing stale lock checks to block queue polling.",
+    "patchTarget": "src/engine/worker.py: reset lock lease expiry in handle_reconnect() before resuming poll loop."
+  },
+  "aiPolicy": {
+    "status": "allowed",
+    "sourceFile": "CONTRIBUTING.md",
+    "summary": "AI code assistance is accepted if code conforms to typed lint rules and test coverage is maintained.",
+    "rawExcerpt": "AI-assisted contributions are welcome provided all tests pass, types are strictly verified, and the author understands and can explain the logic."
+  },
+  "evidence": {
+    "level": "reproduced-isolated",
+    "confidence": 0.95,
+    "commandsRun": [
+      "pytest tests/test_worker_lifecycle.py -k test_lock_lease_after_reconnect"
+    ],
+    "outputSnippet": "AssertionError: Worker did not acquire lock within 5000ms (held by stale instance: lease_expired=False)",
+    "whatRan": "Isolated simulated worker partition unit test using mock Redis client.",
+    "whatSkipped": "Multi-region Redis Cluster test suite (requires external docker network orchestration).",
+    "notes": "Reproduced the exact failure mode where worker remains dormant post-reconnect."
+  },
+  "trail": [
+    {
+      "id": "stop-1",
+      "role": "entry",
+      "title": "Redis client disconnect hook",
+      "description": "Receives reconnection event from underlying redis transport.",
+      "file": "src/engine/worker.py",
+      "lineStart": 110,
+      "lineEnd": 125,
+      "highlightLines": [118, 119],
+      "explanation": {
+        "simple": "When connection returns, the worker re-registers its poll task.",
+        "detailed": "on_transport_reconnect callback fires and triggers resume_poll_loop(), but fails to invalidate current lock cache.",
+        "deep": "Introduced in v0.9 to prevent worker stampedes on reconnect, but assumed local lock lease was already purged."
+      },
+      "code": {
+        "lines": "def on_transport_reconnect(self):\n    logger.info(\"Transport reconnected; resuming worker tasks\")\n    self._is_connected = True\n    self.resume_poll_loop()",
+        "pointer": "Does not clear self._active_lease_id or update last_heartbeat"
+      }
+    },
+    {
+      "id": "stop-2",
+      "role": "transit",
+      "title": "Queue poll iteration",
+      "description": "Main job scheduling tick checking for available work.",
+      "file": "src/engine/worker.py",
+      "lineStart": 175,
+      "lineEnd": 190,
+      "highlightLines": [181, 182],
+      "explanation": {
+        "simple": "Worker checks if it has permission to poll by inspecting its lease.",
+        "detailed": "poll_next_job() calls ensure_worker_lock() before querying the queue.",
+        "deep": "Lock gating ensures only one designated leader worker handles delayed queues."
+      },
+      "code": {
+        "lines": "def poll_next_job(self):\n    if not self.ensure_worker_lock():\n        logger.debug(\"Worker lock not held; skipping poll cycle\")\n        return None\n    return self.queue.pop_pending()",
+        "pointer": "ensure_worker_lock() evaluates to False indefinitely"
+      }
+    },
+    {
+      "id": "stop-3",
+      "role": "origin",
+      "title": "Lock lease validity check",
+      "description": "Checks if existing lease is expired according to local monotonic clock.",
+      "file": "src/engine/locks.py",
+      "lineStart": 85,
+      "lineEnd": 102,
+      "highlightLines": [94, 95],
+      "explanation": {
+        "simple": "The lock manager compares current timestamp with the cached heartbeat from before disconnect.",
+        "detailed": "is_lease_valid() detects time delta exceeds threshold, but rejects acquisition without issuing an explicit release command.",
+        "deep": "A stale local lease prevents new lock acquisition until remote TTL expires in Redis (default 60s), leaving worker idle."
+      },
+      "code": {
+        "lines": "def is_lease_valid(self, lease_id: str) -> bool:\n    cached = self._local_leases.get(lease_id)\n    if not cached:\n        return False\n    return (time.monotonic() - cached.acquired_at) < self.lease_ttl",
+        "pointer": "Returns False but retains stale lease_id reference"
+      }
+    },
+    {
+      "id": "stop-4",
+      "role": "patch",
+      "title": "Reconnect lease invalidation & reset",
+      "description": "Where lease invalidation and immediate renewal must be wired.",
+      "file": "src/engine/worker.py",
+      "lineStart": 126,
+      "lineEnd": 140,
+      "highlightLines": [132],
+      "explanation": {
+        "simple": "Reset local lock cache upon transport recovery before resuming queue poll loop.",
+        "detailed": "Call lock_manager.reset_local_state() in handle_reconnect to force fresh lock election immediately.",
+        "deep": "Ensures no lingering timestamps from before the network blip block worker activation."
+      },
+      "code": {
+        "lines": "def handle_reconnect(self):\n    self.lock_manager.reset_local_state()\n    self.resume_poll_loop()",
+        "pointer": "Clear local cache so fresh acquisition occurs on next tick"
+      }
+    }
+  ],
+  "flow": {
+    "actors": [
+      "TransportLayer",
+      "WorkerDaemon",
+      "LockManager",
+      "RedisCluster"
+    ],
+    "interactions": [
+      {
+        "from": "TransportLayer",
+        "to": "WorkerDaemon",
+        "action": "Transport restored signal",
+        "stopId": "stop-1",
+        "isFailurePoint": false
+      },
+      {
+        "from": "WorkerDaemon",
+        "to": "LockManager",
+        "action": "Check lease validity",
+        "stopId": "stop-2",
+        "isFailurePoint": false
+      },
+      {
+        "from": "LockManager",
+        "to": "WorkerDaemon",
+        "action": "Return lease invalid (stale local cache)",
+        "stopId": "stop-3",
+        "isFailurePoint": true,
+        "error": "StaleLeaseError: cached lease held but expired"
+      },
+      {
+        "from": "WorkerDaemon",
+        "to": "TransportLayer",
+        "action": "Worker idles; polling postponed",
+        "stopId": "stop-2",
+        "isFailurePoint": false
+      }
+    ],
+    "omittedSteps": [
+      "TCP handshake negotiation",
+      "Worker metrics emission"
+    ]
+  },
+  "changeBlueprint": {
+    "targetFiles": [
+      "src/engine/worker.py",
+      "src/engine/locks.py"
+    ],
+    "mustKeepTrue": [
+      "Workers must never dual-execute the same delayed task concurrently.",
+      "Redis TTL expiry mechanism must remain unchanged as safe fallback.",
+      "Clean shutdowns must continue releasing lock leases explicitly."
+    ],
+    "permittedToChange": [
+      "Local in-memory lease cache invalidation rules on transport reconnect.",
+      "Immediate lock re-election trigger on reconnect event."
+    ],
+    "verificationCommand": "pytest tests/test_worker_lifecycle.py -k test_lock_lease_after_reconnect",
+    "suggestedTestCases": [
+      "Simulate 5s network silence, restore transport, and assert job accepted within 100ms."
+    ],
+    "checklist": [
+      "Verify reset_local_state() cleans up all active lease keys",
+      "Confirm no race condition between reconnect event and active poll thread",
+      "Verify backwards compatibility with standalone non-clustered Redis"
+    ]
+  },
+  "metrics": [
+    {
+      "label": "Observed worker downtime",
+      "value": "60 seconds",
+      "explanation": "Default TTL before remote key expiration allows re-acquisition"
+    },
+    {
+      "label": "Expected recovery time",
+      "value": "< 250 milliseconds",
+      "explanation": "Target recovery upon network restoration with local state reset"
+    }
+  ],
+  "glossary": {
+    "Lease": "A time-bounded exclusive token allowing a worker to poll queues.",
+    "Partition": "A temporary network disconnection separating workers from storage.",
+    "Poll Tick": "The periodic polling interval where workers check for pending tasks."
+  },
+  "contextNotes": [
+    {
+      "type": "safety",
+      "text": "Do not test on live production queues without setting a mock queue prefix."
+    },
+    {
+      "type": "architecture",
+      "text": "Nova engine uses leader election per queue partition to prevent task duplicate execution."
+    }
+  ],
+  "maintainerQuestions": [
+    "Should reconnect immediately trigger an active election or wait for next scheduled poll tick?",
+    "Is 60s the intended remote TTL for all queue worker types or just priority queues?"
+  ],
+  "irrelevantFiles": [
+    {
+      "file": "src/engine/serializer.py",
+      "reason": "Payload serialization handles job arguments and is unaffected by connection lease lifecycle."
+    }
+  ]
+}

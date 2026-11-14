@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trailblazer Trace Report</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --primary: #58a6ff;
+      --primary-hover: #79c0ff;
+      --accent: #bc8cff;
+      --success: #3fb950;
+      --warning: #d29922;
+      --danger: #f85149;
+      --code-bg: #0b0e14;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      --radius: 8px;
+    }
+
+    [data-theme="light"] {
+      --bg: #f6f8fa;
+      --card-bg: #ffffff;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --text-muted: #656d76;
+      --primary: #0969da;
+      --primary-hover: #0550ae;
+      --accent: #8250df;
+      --success: #1a7f37;
+      --warning: #9a6700;
+      --danger: #cf222e;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      padding: 24px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .badges {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid transparent;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-primary { background: rgba(88, 166, 255, 0.15); color: var(--primary); border-color: rgba(88, 166, 255, 0.3); }
+    .badge-success { background: rgba(63, 185, 80, 0.15); color: var(--success); border-color: rgba(63, 185, 80, 0.3); }
+    .badge-warning { background: rgba(210, 153, 34, 0.15); color: var(--warning); border-color: rgba(210, 153, 34, 0.3); }
+    .badge-danger { background: rgba(248, 81, 73, 0.15); color: var(--danger); border-color: rgba(248, 81, 73, 0.3); }
+
+    .issue-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .issue-meta {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .theme-toggle:hover {
+      background: var(--border);
+    }
+
+    /* Tabs */
+    .tab-bar {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 6px 6px 0 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+      transition: color 0.2s;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+    }
+
+    .tab-btn.active {
+      color: var(--primary);
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -5px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--primary);
+      border-radius: 2px;
+    }
+
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Cards & Grid */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--primary);
+    }
+
+    .briefing-box {
+      margin-bottom: 16px;
+    }
+    .briefing-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .briefing-text {
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    /* Trail Stop Layout */
+    .trail-container {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 800px) {
+      .trail-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .trail-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .trail-item {
+      padding: 12px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .trail-item:hover {
+      border-color: var(--primary);
+    }
+
+    .trail-item.active {
+      border-color: var(--primary);
+      background: rgba(88, 166, 255, 0.08);
+    }
+
+    .trail-item-role {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .role-entry { color: var(--primary); }
+    .role-transit { color: var(--accent); }
+    .role-origin { color: var(--danger); }
+    .role-patch { color: var(--success); }
+
+    .trail-item-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .trail-item-file {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    /* Code Viewer */
+    .code-box {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      margin-top: 14px;
+    }
+
+    .code-header {
+      background: rgba(0, 0, 0, 0.2);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 14px;
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    pre code {
+      display: block;
+      padding: 14px;
+      overflow-x: auto;
+      white-space: pre;
+      line-height: 1.6;
+    }
+
+    .depth-switch {
+      display: flex;
+      background: var(--bg);
+      padding: 2px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+      width: fit-content;
+    }
+
+    .depth-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .depth-btn.active {
+      background: var(--card-bg);
+      color: var(--text);
+    }
+
+    /* Flow Stepper */
+    .flow-step {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .flow-marker {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--card-bg);
+      border: 2px solid var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      flex-shrink: 0;
+      z-index: 1;
+    }
+    .flow-marker.fail {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .flow-line {
+      position: absolute;
+      left: 15px;
+      top: 32px;
+      bottom: -20px;
+      width: 2px;
+      background: var(--border);
+    }
+
+    .flow-content {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      flex-grow: 1;
+    }
+
+    /* Lists */
+    ul.check-list {
+      list-style: none;
+    }
+    ul.check-list li {
+      position: relative;
+      padding-left: 24px;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    ul.check-list li::before {
+      content: "✔";
+      position: absolute;
+      left: 0;
+      color: var(--success);
+      font-weight: bold;
+    }
+    ul.alert-list li::before {
+      content: "!";
+      position: absolute;
+      left: 0;
+      color: var(--warning);
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="header-top">
+        <div class="badges" id="header-badges"></div>
+        <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()">☀️ Light Mode</button>
+      </div>
+      <h1 class="issue-title" id="issue-title">Loading Trace...</h1>
+      <div class="issue-meta" id="issue-meta"></div>
+    </header>
+
+    <!-- Tab Bar -->
+    <nav class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('overview')">📌 Overview</button>
+      <button class="tab-btn" onclick="switchTab('trail')">🔍 Code Trail</button>
+      <button class="tab-btn" onclick="switchTab('flow')">🔄 Interaction Flow</button>
+      <button class="tab-btn" onclick="switchTab('blueprint')">📐 Change Blueprint</button>
+      <button class="tab-btn" onclick="switchTab('extras')">💡 Insights & Q&A</button>
+    </nav>
+
+    <!-- Tab 1: Overview -->
+    <div id="tab-overview" class="tab-content active">
+      <div class="grid-2">
+        <div class="card">
+          <h2 class="card-title">🎯 Executive 3-Point Briefing</h2>
+          <div class="briefing-box">
+            <div class="briefing-label">The Problem</div>
+            <div class="briefing-text" id="summary-problem">-</div>
+          </div>
+          <div class="briefing-box">
+            <div class="briefing-label">Root Cause</div>
+            <div class="briefing-text" id="summary-cause">-</div>
+          </div>
+          <div class="briefing-box">
+            <div class="briefing-label">Patch Target</div>
+            <div class="briefing-text" id="summary-target">-</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">🧪 Evidence & Reproduction</h2>
+          <div id="evidence-box"></div>
+        </div>
+      </div>
+
+      <div class="card" id="metrics-card" style="margin-bottom: 24px;">
+        <h2 class="card-title">📊 Key Metrics & Counts</h2>
+        <div id="metrics-list"></div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Code Trail -->
+    <div id="tab-trail" class="tab-content">
+      <div class="trail-container">
+        <div class="trail-sidebar" id="trail-sidebar"></div>
+        <div class="card" id="trail-detail">
+          <div class="depth-switch">
+            <button class="depth-btn active" onclick="setDepth('simple')">Simple</button>
+            <button class="depth-btn" onclick="setDepth('detailed')">Detailed</button>
+            <button class="depth-btn" onclick="setDepth('deep')">Deep</button>
+          </div>
+          <h3 id="stop-title" style="margin-bottom: 8px;"></h3>
+          <p id="stop-explanation" style="font-size: 14px; margin-bottom: 14px;"></p>
+          <div class="code-box">
+            <div class="code-header">
+              <span id="code-file"></span>
+              <span id="code-lines"></span>
+            </div>
+            <pre><code id="code-snippet"></code></pre>
+          </div>
+          <div id="code-pointer" style="margin-top: 8px; font-size: 12px; color: var(--warning);"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Interaction Flow -->
+    <div id="tab-flow" class="tab-content">
+      <div class="card">
+        <h2 class="card-title">🔄 Interaction Sequence</h2>
+        <div id="flow-stepper" style="margin-top: 16px;"></div>
+      </div>
+    </div>
+
+    <!-- Tab 4: Change Blueprint -->
+    <div id="tab-blueprint" class="tab-content">
+      <div class="grid-2">
+        <div class="card">
+          <h2 class="card-title">🔒 Invariants (Must Keep True)</h2>
+          <ul class="check-list" id="blueprint-invariants"></ul>
+        </div>
+        <div class="card">
+          <h2 class="card-title">✏️ Permitted To Change</h2>
+          <ul class="check-list alert-list" id="blueprint-permitted"></ul>
+        </div>
+      </div>
+      <div class="card">
+        <h2 class="card-title">📋 Verification & Test Plan</h2>
+        <div id="blueprint-verification"></div>
+      </div>
+    </div>
+
+    <!-- Tab 5: Insights & Q&A -->
+    <div id="tab-extras" class="tab-content">
+      <div class="grid-2">
+        <div class="card">
+          <h2 class="card-title">💬 Questions for Maintainers</h2>
+          <ul id="questions-list" style="padding-left: 20px; font-size: 14px;"></ul>
+        </div>
+        <div class="card">
+          <h2 class="card-title">📖 Domain Glossary</h2>
+          <div id="glossary-box"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top: 20px;">
+        <h2 class="card-title">🚫 Verified Out-of-Scope Files</h2>
+        <div id="irrelevant-files"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Raw Payload Hydration Placeholder -->
+  <script id="trailblazer-raw-data" type="application/json">
+/*__TRAILBLAZER_DATA__*/
+  </script>
+
+  <script>
+    let traceData = {};
+    let currentDepth = 'simple';
+    let selectedStopIndex = 0;
+
+    // Load data safely
+    try {
+      const rawText = document.getElementById('trailblazer-raw-data').textContent.trim();
+      if (rawText && !rawText.includes('__TRAILBLAZER_DATA__')) {
+        traceData = JSON.parse(rawText);
+      }
+    } catch (e) {
+      console.warn("Could not parse inline data payload:", e);
+    }
+
+    function init() {
+      if (!traceData.repository) return;
+
+      // Header
+      const issue = traceData.issue || {};
+      document.getElementById('issue-title').textContent = issue.title || "Issue Investigation";
+      document.getElementById('issue-meta').textContent = `${traceData.repository} • Issue #${issue.id || ''} • Commit: ${(issue.commit || '').slice(0, 8)}`;
+
+      // Badges
+      const badgesContainer = document.getElementById('header-badges');
+      badgesContainer.innerHTML = '';
+
+      if (issue.category) {
+        badgesContainer.innerHTML += `<span class="badge badge-primary">${issue.category}</span>`;
+      }
+
+      const ev = traceData.evidence || {};
+      if (ev.level) {
+        const evColor = ev.level.includes('real') ? 'badge-success' : (ev.level.includes('isolated') ? 'badge-warning' : 'badge-primary');
+        badgesContainer.innerHTML += `<span class="badge ${evColor}">${ev.level}</span>`;
+      }
+
+      const ai = traceData.aiPolicy || {};
+      if (ai.status) {
+        const aiColor = ai.status === 'allowed' ? 'badge-success' : (ai.status === 'prohibited' ? 'badge-danger' : 'badge-warning');
+        badgesContainer.innerHTML += `<span class="badge ${aiColor}">AI Policy: ${ai.status}</span>`;
+      }
+
+      // Summary
+      const summary = traceData.summary || {};
+      document.getElementById('summary-problem').textContent = summary.problem || '-';
+      document.getElementById('summary-cause').textContent = summary.rootCause || '-';
+      document.getElementById('summary-target').textContent = summary.patchTarget || '-';
+
+      // Evidence Box
+      const evBox = document.getElementById('evidence-box');
+      evBox.innerHTML = `
+        <div style="font-size: 14px; margin-bottom: 8px;"><strong>What Ran:</strong> ${ev.whatRan || 'None'}</div>
+        <div style="font-size: 14px; margin-bottom: 8px;"><strong>What Skipped:</strong> ${ev.whatSkipped || 'None'}</div>
+        ${ev.outputSnippet ? `<div class="code-box"><pre><code>${ev.outputSnippet}</code></pre></div>` : ''}
+      `;
+
+      // Metrics
+      const metrics = traceData.metrics || [];
+      const metricsList = document.getElementById('metrics-list');
+      if (metrics.length === 0) {
+        document.getElementById('metrics-card').style.display = 'none';
+      } else {
+        metricsList.innerHTML = metrics.map(m => `
+          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px;">
+            <span><strong>${m.label}:</strong> ${m.explanation || ''}</span>
+            <span style="font-weight: 700; color: var(--primary);">${m.value}</span>
+          </div>
+        `).join('');
+      }
+
+      // Trail Sidebar
+      renderTrailSidebar();
+      renderTrailDetail(0);
+
+      // Flow
+      renderFlow();
+
+      // Blueprint
+      renderBlueprint();
+
+      // Extras
+      renderExtras();
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('tab-' + tabId).classList.add('active');
+    }
+
+    function renderTrailSidebar() {
+      const trail = traceData.trail || [];
+      const sidebar = document.getElementById('trail-sidebar');
+      sidebar.innerHTML = trail.map((stop, idx) => `
+        <div class="trail-item ${idx === 0 ? 'active' : ''}" onclick="selectStop(${idx})">
+          <div class="trail-item-role role-${stop.role || 'transit'}">${stop.role || 'stop'}</div>
+          <div class="trail-item-title">${stop.title || stop.id}</div>
+          <div class="trail-item-file">${(stop.file || '').split('/').pop()}:${stop.lineStart || ''}</div>
+        </div>
+      `).join('');
+    }
+
+    function selectStop(idx) {
+      selectedStopIndex = idx;
+      document.querySelectorAll('.trail-item').forEach((item, i) => {
+        item.classList.toggle('active', i === idx);
+      });
+      renderTrailDetail(idx);
+    }
+
+    function setDepth(depth) {
+      currentDepth = depth;
+      document.querySelectorAll('.depth-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      renderTrailDetail(selectedStopIndex);
+    }
+
+    function renderTrailDetail(idx) {
+      const stop = (traceData.trail || [])[idx];
+      if (!stop) return;
+
+      document.getElementById('stop-title').textContent = `${stop.id.toUpperCase()}: ${stop.title}`;
+      const exp = stop.explanation || {};
+      document.getElementById('stop-explanation').textContent = exp[currentDepth] || exp.simple || stop.description || '-';
+
+      document.getElementById('code-file').textContent = stop.file;
+      document.getElementById('code-lines').textContent = stop.lineStart ? `Lines ${stop.lineStart}-${stop.lineEnd}` : '';
+      document.getElementById('code-snippet').textContent = (stop.code && stop.code.lines) ? stop.code.lines : '// No code snippet recorded';
+      document.getElementById('code-pointer').textContent = (stop.code && stop.code.pointer) ? `👉 Note: ${stop.code.pointer}` : '';
+    }
+
+    function renderFlow() {
+      const flow = traceData.flow || {};
+      const container = document.getElementById('flow-stepper');
+      const interactions = flow.interactions || [];
+
+      if (interactions.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-muted); font-size: 14px;">No interaction flow steps recorded.</p>';
+        return;
+      }
+
+      container.innerHTML = interactions.map((step, idx) => `
+        <div class="flow-step">
+          ${idx < interactions.length - 1 ? '<div class="flow-line"></div>' : ''}
+          <div class="flow-marker ${step.isFailurePoint ? 'fail' : ''}">${idx + 1}</div>
+          <div class="flow-content">
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px;">
+              ${step.from} ➔ ${step.to}
+            </div>
+            <div style="font-size: 13px; color: var(--text);">${step.action}</div>
+            ${step.error ? `<div style="color: var(--danger); font-size: 12px; margin-top: 6px; font-weight: 600;">⚠️ ${step.error}</div>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderBlueprint() {
+      const bp = traceData.changeBlueprint || {};
+      const invList = document.getElementById('blueprint-invariants');
+      invList.innerHTML = (bp.mustKeepTrue || []).map(item => `<li>${item}</li>`).join('') || '<li>No invariants specified</li>';
+
+      const permList = document.getElementById('blueprint-permitted');
+      permList.innerHTML = (bp.permittedToChange || []).map(item => `<li>${item}</li>`).join('') || '<li>No changes specified</li>';
+
+      const verBox = document.getElementById('blueprint-verification');
+      verBox.innerHTML = `
+        ${bp.verificationCommand ? `<div style="margin-bottom: 12px; font-size: 14px;"><strong>Command:</strong> <code style="background: var(--code-bg); padding: 2px 6px; border-radius: 4px;">${bp.verificationCommand}</code></div>` : ''}
+        ${bp.suggestedTestCases ? `<div style="margin-bottom: 12px; font-size: 14px;"><strong>Suggested Tests:</strong><ul style="padding-left: 20px; margin-top: 4px;">${bp.suggestedTestCases.map(t => `<li>${t}</li>`).join('')}</ul></div>` : ''}
+      `;
+    }
+
+    function renderExtras() {
+      const qList = document.getElementById('questions-list');
+      qList.innerHTML = (traceData.maintainerQuestions || []).map(q => `<li style="margin-bottom: 6px;">${q}</li>`).join('') || '<li>No questions recorded.</li>';
+
+      const glossaryBox = document.getElementById('glossary-box');
+      const glossary = traceData.glossary || {};
+      glossaryBox.innerHTML = Object.entries(glossary).map(([term, def]) => `
+        <div style="margin-bottom: 8px; font-size: 14px;">
+          <strong style="color: var(--primary);">${term}:</strong> ${def}
+        </div>
+      `).join('') || '<p style="color: var(--text-muted); font-size: 14px;">No glossary entries.</p>';
+
+      const irrBox = document.getElementById('irrelevant-files');
+      const irr = traceData.irrelevantFiles || [];
+      irrBox.innerHTML = irr.map(f => `
+        <div style="font-size: 13px; margin-bottom: 6px;">
+          <code style="color: var(--text-muted);">${f.file}</code> — ${f.reason}
+        </div>
+      `).join('') || '<p style="color: var(--text-muted); font-size: 14px;">None identified.</p>';
+    }
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      const btn = document.getElementById('theme-btn');
+      if (html.getAttribute('data-theme') === 'dark') {
+        html.setAttribute('data-theme', 'light');
+        btn.textContent = '🌙 Dark Mode';
+      } else {
+        html.setAttribute('data-theme', 'dark');
+        btn.textContent = '☀️ Light Mode';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "name": "trailblazer-skill",
+  "version": "1.0.0",
+  "description": "Visual, verified codebase issue investigator and explainability tool for developers and AI agents.",
+  "main": "scripts/compile.py",
+  "bin": {
+    "trailblazer": "./scripts/compile.py"
+  },
+  "keywords": [
+    "agent-skill",
+    "developer-tools",
+    "code-investigation",
+    "issue-tracer",
+    "explainability",
+    "antigravity",
+    "claude-code"
+  ],
+  "author": "Trailblazer Contributors",
+  "license": "MIT",
+  "engines": {
+    "python": ">=3.8"
+  }
+}
