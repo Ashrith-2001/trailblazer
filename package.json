@@ -1,23 +1,47 @@
 {
-  "name": "trailblazer-skill",
+  "name": "trailblazer-agent",
   "version": "1.0.0",
-  "description": "Visual, verified codebase issue investigator and explainability tool for developers and AI agents.",
-  "main": "scripts/compile.py",
+  "description": "Visual, verified codebase issue investigator and interactive dashboard for developers and AI agents.",
+  "main": "bin/trailblazer.js",
   "bin": {
-    "trailblazer": "./scripts/compile.py"
+    "trailblazer": "./bin/trailblazer.js",
+    "trailblazer-mcp": "./bin/trailblazer-mcp.js"
   },
-  "keywords": [
-    "agent-skill",
-    "developer-tools",
-    "code-investigation",
-    "issue-tracer",
-    "explainability",
-    "antigravity",
-    "claude-code"
+  "files": [
+    "bin/",
+    "scripts/",
+    "assets/",
+    "mcp-server/",
+    "references/",
+    "examples/",
+    "SKILL.md",
+    "README.md",
+    "LICENSE"
   ],
-  "author": "Trailblazer Contributors",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "agent-skill",
+    "claude-code",
+    "cursor",
+    "windsurf",
+    "codebase-investigator",
+    "code-understanding",
+    "developer-tools"
+  ],
+  "author": "Ashrith K <kothaashrith07@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ashrith-2001/trailblazer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ashrith-2001/trailblazer/issues"
+  },
+  "homepage": "https://github.com/Ashrith-2001/trailblazer#readme",
   "engines": {
+    "node": ">=16.0.0",
     "python": ">=3.8"
   }
 }

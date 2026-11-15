@@ -36,56 +36,91 @@ When assigned an issue or bug in a massive, unfamiliar codebase, developers and 
 
 ---
 
-## 🚀 Quick Start (30 Seconds)
+## 🚀 Ways to Run & Install
 
-### Option 1: MCP Server (Recommended)
+### Method 1: Instant via `npx` (No git clone needed!)
 
-Register Trailblazer as an MCP tool in your agent's configuration (`~/.claude.json`, Cursor MCP settings, or VS Code):
+If you have Node.js installed, you can run Trailblazer directly without cloning any repository:
 
+```bash
+# Initialize a new investigation scaffold in your current repo
+npx trailblazer-agent --init auth-reconnect-issue
+
+# Compile and serve the interactive dashboard
+npx trailblazer-agent .tbz/auth-reconnect-issue/trace.json --serve
+```
+
+**As an MCP server in Claude Code, Cursor, or VS Code:**
 ```json
 {
   "mcpServers": {
     "trailblazer": {
-      "command": "python3",
-      "args": [
-        "/absolute/path/to/trailblazer/mcp-server/server.py"
-      ]
+      "command": "npx",
+      "args": ["-y", "trailblazer-agent"]
     }
   }
 }
 ```
 
-Then in any codebase, simply ask:
-> *"Use Trailblazer to investigate why session authorization drops on socket reconnect."*
+---
 
-Your agent autonomously calls `trailblazer_start` → investigates → writes findings → validates → serves the dashboard on `http://127.0.0.1:4200/`.
+### Method 2: Instant via Python (`uvx` / `pip`)
+
+If you use Python, you can run or install Trailblazer via `pip` or modern zero-install `uvx`:
+
+```bash
+# Run instantly without installing (using uv):
+uvx trailblazer-agent --init auth-reconnect-issue
+uvx trailblazer-agent .tbz/auth-reconnect-issue/trace.json --serve
+
+# Or install globally:
+pip install trailblazer-agent
+trailblazer --init auth-reconnect-issue
+trailblazer .tbz/auth-reconnect-issue/trace.json --serve
+```
+
+**As an MCP server using Python:**
+```json
+{
+  "mcpServers": {
+    "trailblazer": {
+      "command": "trailblazer-mcp"
+    }
+  }
+}
+```
 
 ---
 
-### Option 2: Agent Skill
+### Method 3: Local Git Clone or Agent Skill
 
-Install Trailblazer into your AI agent's skills directory:
+Clone the repository locally for offline development or install as an agent skill:
 
 ```bash
 git clone https://github.com/Ashrith-2001/trailblazer ~/.agents/skills/trailblazer
 ```
 
-Prompt your agent:
-```text
-Investigate issue #142 using trailblazer in this repository.
+**As a local MCP server:**
+```json
+{
+  "mcpServers": {
+    "trailblazer": {
+      "command": "python3",
+      "args": ["/path/to/trailblazer/mcp-server/server.py"]
+    }
+  }
+}
 ```
 
 ---
 
-### Option 3: Instant CLI Preview
+### Instant CLI Preview (Nova Engine Reference Trace)
 
-Preview the interactive visual dashboard immediately with the bundled Nova Engine reference trace:
+Preview the interactive visual dashboard immediately:
 
 ```bash
 python3 scripts/compile.py examples/example-trace.json --serve
 ```
-
-Opens `http://127.0.0.1:4200/` automatically in your browser.
 
 ---
 

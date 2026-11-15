@@ -1,0 +1,1805 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trailblazer Trace</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --card-bg: #ffffff;
+      --card-subtle: #f1f3f5;
+      --border: #d0d7de;
+      --border-light: #e1e4e8;
+      --text: #1f2328;
+      --text-muted: #57606a;
+      --text-subtle: #6e7781;
+      --primary: #0969da;
+      --primary-subtle: #ddf4ff;
+      --primary-border: #54aeff;
+      --accent: #8250df;
+      --success: #1a7f37;
+      --success-subtle: #dafbe1;
+      --success-border: #4ac26b;
+      --warning: #9a6700;
+      --warning-subtle: #fff8c5;
+      --danger: #cf222e;
+      --danger-subtle: #ffebe9;
+      --danger-border: #ff8182;
+      --code-bg: #f6f8fa;
+      --highlight-bg: #fff8c5;
+      --highlight-border: #d4a72c;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      --radius: 8px;
+      --shadow-sm: 0 1px 3px rgba(31,35,40,0.06);
+      --font-scale: 1;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --card-subtle: #21262d;
+      --border: #30363d;
+      --border-light: #21262d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --text-subtle: #6e7681;
+      --primary: #58a6ff;
+      --primary-subtle: rgba(56, 139, 253, 0.15);
+      --primary-border: #388bfd;
+      --accent: #bc8cff;
+      --success: #3fb950;
+      --success-subtle: rgba(46, 160, 67, 0.15);
+      --success-border: #2ea043;
+      --warning: #d29922;
+      --warning-subtle: rgba(187, 128, 9, 0.15);
+      --danger: #f85149;
+      --danger-subtle: rgba(248, 81, 73, 0.15);
+      --danger-border: #f85149;
+      --code-bg: #0b0e14;
+      --highlight-bg: rgba(187, 128, 9, 0.25);
+      --highlight-border: #d29922;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: calc(14px * var(--font-scale));
+      line-height: 1.5;
+      padding: 24px 32px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+
+    /* Top Metadata Bar */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .repo-pill-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .tag-badge {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      background: var(--card-subtle);
+    }
+
+    .top-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .segmented-control {
+      display: flex;
+      background: var(--card-subtle);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px;
+    }
+
+    .segmented-control button {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .segmented-control button.active {
+      background: var(--primary-subtle);
+      color: var(--primary);
+    }
+
+    .theme-select {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .font-adjusters {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-icon {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-icon:hover { color: var(--text); border-color: var(--text); }
+
+    /* Main Title */
+    .investigation-title {
+      font-size: calc(22px * var(--font-scale));
+      font-weight: 700;
+      margin-bottom: 20px;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+
+    /* 3 Summary Cards Row */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .summary-grid { grid-template-columns: 1fr; }
+    }
+
+    .summary-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+    }
+
+    .summary-card.change-card {
+      border-color: var(--success-border);
+      background: var(--success-subtle);
+    }
+
+    .summary-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .summary-card-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .summary-card-text {
+      font-size: calc(14px * var(--font-scale));
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    .proof-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: var(--card-subtle);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .proof-pill::before {
+      content: "•";
+      font-size: 14px;
+      color: var(--primary);
+    }
+
+    /* Quantitative Facts & Notes rows */
+    .fact-notes-block {
+      margin-bottom: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: calc(13px * var(--font-scale));
+    }
+
+    .fact-line {
+      color: var(--text);
+      line-height: 1.4;
+    }
+    .fact-count {
+      font-weight: 700;
+    }
+
+    .note-badge-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      color: var(--text-muted);
+    }
+
+    .status-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 1px 6px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .badge-warn {
+      background: var(--warning-subtle);
+      color: var(--warning);
+      border: 1px solid var(--warning);
+    }
+    .badge-note {
+      background: var(--card-subtle);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .badge-safety {
+      background: var(--danger-subtle);
+      color: var(--danger);
+      border: 1px solid var(--danger-border);
+    }
+
+    /* Glossary Dotted Underline */
+    .glossary-term {
+      text-decoration: underline dotted var(--text-subtle);
+      text-underline-offset: 3px;
+      cursor: help;
+      position: relative;
+    }
+    .glossary-term:hover::after {
+      content: attr(data-definition);
+      position: absolute;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: var(--bg);
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      font-weight: normal;
+    }
+
+    /* Tab Navigation */
+    .main-tab-bar {
+      display: flex;
+      gap: 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+
+    .nav-tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: calc(14px * var(--font-scale));
+      font-weight: 600;
+      padding: 10px 0;
+      cursor: pointer;
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .nav-tab-btn:hover {
+      color: var(--text);
+    }
+
+    .nav-tab-btn.active {
+      color: var(--primary);
+    }
+
+    .nav-tab-btn.active::after {
+      content: "";
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--primary);
+      border-radius: 2px;
+    }
+
+    .tab-index-num {
+      font-size: 11px;
+      opacity: 0.6;
+      font-weight: normal;
+    }
+
+    .tab-panel {
+      display: none;
+    }
+    .tab-panel.active {
+      display: block;
+    }
+
+    /* Story Stepper Header (Tab 1) */
+    .story-stepper {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      position: relative;
+      padding: 0 20px;
+    }
+
+    .stepper-line {
+      position: absolute;
+      top: 14px;
+      left: 40px;
+      right: 40px;
+      height: 2px;
+      background: var(--border);
+      z-index: 0;
+    }
+
+    .step-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      z-index: 1;
+    }
+
+    .step-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--card-bg);
+      border: 2px solid var(--border);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s;
+    }
+
+    .step-node.completed .step-circle {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .step-node.active .step-circle {
+      background: var(--card-bg);
+      border-color: var(--primary);
+      color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-subtle);
+    }
+
+    .step-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .step-node.active .step-label {
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    /* Story Container Card */
+    .story-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 24px;
+    }
+
+    .story-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+
+    .story-step-indicator {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .story-title {
+      font-size: calc(18px * var(--font-scale));
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .story-lead {
+      color: var(--text);
+      font-size: calc(14px * var(--font-scale));
+      margin-bottom: 18px;
+    }
+
+    /* Mini Horizontal Trail Step Cards */
+    .trail-step-cards {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 20px;
+    }
+
+    .trail-step-card {
+      flex: 1;
+      min-width: 140px;
+      background: var(--card-subtle);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .trail-step-card.current {
+      border-color: var(--primary);
+      background: var(--primary-subtle);
+    }
+
+    .trail-step-card.problem {
+      border-color: var(--danger-border);
+      background: var(--danger-subtle);
+    }
+
+    .trail-step-card.patch {
+      border-color: var(--success-border);
+      background: var(--success-subtle);
+    }
+
+    .step-role-badge {
+      font-size: 10px;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+    .step-role-current { color: var(--primary); }
+    .step-role-problem { color: var(--danger); }
+    .step-role-patch { color: var(--success); }
+
+    /* Code Block Display */
+    .code-container {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      font-family: var(--font-mono);
+    }
+
+    .code-top-header {
+      background: var(--card-subtle);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    .code-file-name {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .code-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .code-link {
+      color: var(--primary);
+      text-decoration: none;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .code-link:hover { text-decoration: underline; }
+
+    .code-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .code-table td {
+      padding: 2px 8px;
+    }
+
+    .line-num {
+      width: 44px;
+      text-align: right;
+      color: var(--text-subtle);
+      user-select: none;
+      padding-right: 14px;
+    }
+
+    .code-line {
+      white-space: pre;
+      color: var(--text);
+      font-family: var(--font-mono);
+    }
+
+    .line-row.highlighted {
+      background: var(--highlight-bg);
+    }
+    .line-row.highlighted td.line-num {
+      border-left: 3px solid var(--highlight-border);
+    }
+
+    .pointer-row td {
+      padding: 6px 14px 10px 48px;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-style: italic;
+    }
+
+    .code-footer-bar {
+      background: var(--card-subtle);
+      border-top: 1px solid var(--border);
+      padding: 4px 14px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Accordion Details */
+    details.custom-accordion {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 10px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    details.custom-accordion summary {
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      color: var(--text);
+    }
+
+    details.custom-accordion[open] summary {
+      border-bottom: 1px solid var(--border);
+    }
+
+    details.custom-accordion .accordion-body {
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /* Bottom Navigation Button Row */
+    .step-nav-buttons {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 20px;
+    }
+
+    .btn-step {
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .btn-step:hover { background: var(--card-subtle); }
+    .btn-step-primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .btn-step-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    /* Tab 2: Codebase Map */
+    .map-header-lead {
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+
+    .map-context-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 16px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .map-nodes-grid {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .map-box {
+      border-radius: 6px;
+      padding: 14px 18px;
+      font-size: 13px;
+      min-width: 170px;
+    }
+
+    .map-box.on-trail {
+      background: var(--card-bg);
+      border: 1px solid var(--primary-border);
+      color: var(--text);
+    }
+
+    .map-box.nearby {
+      background: var(--card-bg);
+      border: 1px dashed var(--border);
+      color: var(--text-muted);
+    }
+
+    .map-box-title {
+      font-weight: 600;
+      font-family: var(--font-mono);
+      margin-bottom: 4px;
+    }
+
+    .map-box-sub {
+      font-size: 11px;
+      color: var(--primary);
+    }
+    .map-box.nearby .map-box-sub {
+      color: var(--text-subtle);
+    }
+
+    /* Tab 3: Interactive Sequence Flow */
+    .flow-action-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .sequence-diagram-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 20px;
+      overflow-x: auto;
+    }
+
+    /* Tab 4: Code Viewer with Sidebar */
+    .code-trail-layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 850px) {
+      .code-trail-layout { grid-template-columns: 1fr; }
+    }
+
+    .code-trail-sidebar-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .code-trail-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .code-trail-item {
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      font-size: 13px;
+    }
+
+    .code-trail-item.active {
+      background: var(--primary-subtle);
+      border-color: var(--primary-border);
+    }
+
+    .dot-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+    .dot-blue { background: var(--primary); }
+    .dot-red { background: var(--danger); }
+    .dot-green { background: var(--success); }
+
+    /* Tab 5: Your Change */
+    .change-split-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 800px) {
+      .change-split-grid { grid-template-columns: 1fr; }
+    }
+
+    .change-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+    }
+
+    .change-box.active-box {
+      border-color: var(--primary-border);
+    }
+
+    .change-box-title {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .bullet-list {
+      list-style-type: none;
+      font-size: 13px;
+    }
+    .bullet-list li {
+      position: relative;
+      padding-left: 18px;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .bullet-list li::before {
+      content: "•";
+      position: absolute;
+      left: 2px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Top Metadata Bar -->
+    <div class="top-bar">
+      <div class="repo-pill-group">
+        <span id="repo-id-label">repo/project</span>
+        <span id="issue-ref-label">#issue</span>
+        <span class="tag-badge" id="category-badge">bug</span>
+      </div>
+
+      <div class="top-controls">
+        <div class="segmented-control">
+          <button id="btn-depth-simple" class="active" onclick="setDepth('simple')">Simple</button>
+          <button id="btn-depth-detailed" onclick="setDepth('detailed')">Detailed</button>
+          <button id="btn-depth-deep" onclick="setDepth('deep')">Deep</button>
+        </div>
+
+        <select class="theme-select" id="theme-select" onchange="changeTheme(this.value)">
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+
+        <div class="font-adjusters">
+          <button class="btn-icon" onclick="adjustFont(-0.1)">A-</button>
+          <button class="btn-icon" onclick="adjustFont(0.1)">A+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Title -->
+    <h1 class="investigation-title" id="main-title">Loading investigation trace...</h1>
+
+    <!-- 3 Summary Cards Row -->
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="summary-card-header">
+          <span class="summary-card-title">The problem</span>
+        </div>
+        <div class="summary-card-text" id="summary-problem">-</div>
+      </div>
+
+      <div class="summary-card">
+        <div class="summary-card-header">
+          <span class="summary-card-title">The cause</span>
+          <span class="proof-pill" id="proof-label">Read in code</span>
+        </div>
+        <div class="summary-card-text" id="summary-cause">-</div>
+      </div>
+
+      <div class="summary-card change-card">
+        <div class="summary-card-header">
+          <span class="summary-card-title">Where you'd change it</span>
+        </div>
+        <div class="summary-card-text" id="summary-target">-</div>
+      </div>
+    </div>
+
+    <!-- Quantitative Facts & Notes Lines -->
+    <div class="fact-notes-block" id="facts-and-notes"></div>
+
+    <!-- Main Tab Navigation -->
+    <nav class="main-tab-bar">
+      <button class="nav-tab-btn active" onclick="switchTab(1)">Story <span class="tab-index-num">1</span></button>
+      <button class="nav-tab-btn" onclick="switchTab(2)">Map <span class="tab-index-num">2</span></button>
+      <button class="nav-tab-btn" onclick="switchTab(3)">Flow <span class="tab-index-num">3</span></button>
+      <button class="nav-tab-btn" onclick="switchTab(4)">Code <span class="tab-index-num">4</span></button>
+      <button class="nav-tab-btn" onclick="switchTab(5)">Your change <span class="tab-index-num">5</span></button>
+    </nav>
+
+    <!-- Tab 1: Story -->
+    <div id="tab-1" class="tab-panel active">
+      <!-- Stepper Circles -->
+      <div class="story-stepper" id="stepper-bar"></div>
+
+      <!-- Main Step Story Card -->
+      <div class="story-card">
+        <div class="story-header">
+          <span class="story-step-indicator" id="story-step-indicator">Chapter 1 · Step 1</span>
+          <span class="proof-pill" id="story-step-proof">Read in code</span>
+        </div>
+        <h2 class="story-title" id="story-step-title">Step Title</h2>
+        <p class="story-lead" id="story-step-lead">Step narrative explanation.</p>
+
+        <!-- Horizontal Trail Step Cards -->
+        <div class="trail-step-cards" id="trail-mini-steps"></div>
+
+        <!-- Code Container -->
+        <div class="code-container" id="story-code-container">
+          <div class="code-top-header">
+            <span class="code-file-name" id="story-file-name">path/to/file.py</span>
+            <div class="code-actions">
+              <a class="code-link" id="story-repo-link" style="display:none;" target="_blank" rel="noopener">View source ↗</a>
+              <span class="code-link" onclick="copyStoryCode(event)">Copy</span>
+            </div>
+          </div>
+          <table class="code-table" id="story-code-table"></table>
+          <div class="code-footer-bar">
+            <span id="story-code-lang">Python</span>
+            <span id="story-code-commit">Lines 10-25 · main</span>
+          </div>
+        </div>
+
+        <!-- Go Deeper Accordion -->
+        <details class="custom-accordion" id="story-deeper-accordion" style="margin-top: 14px;">
+          <summary>Go deeper</summary>
+          <div class="accordion-body" id="story-deeper-content"></div>
+        </details>
+
+        <!-- Navigation Next/Back -->
+        <div class="step-nav-buttons">
+          <button class="btn-step" id="btn-step-back" onclick="navigateStep(-1)">← Back</button>
+          <span style="font-size: 11px; color: var(--text-muted);">or use ← → arrow keys</span>
+          <button class="btn-step btn-step-primary" id="btn-step-next" onclick="navigateStep(1)">Next →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Map -->
+    <div id="tab-2" class="tab-panel">
+      <div class="story-card">
+        <p class="map-header-lead" id="map-header-lead">Repository package routing architecture.</p>
+        <div class="map-context-row">
+          <span>repo</span>
+        </div>
+        <div class="map-nodes-grid" id="map-nodes-grid"></div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-top: 12px;">
+          Dashed items are nearby modules but not involved in this issue trail.
+        </p>
+      </div>
+    </div>
+
+    <!-- Tab 3: Flow -->
+    <div id="tab-3" class="tab-panel">
+      <div class="flow-action-bar">
+        <button class="btn-step btn-step-primary" onclick="runFlowAnimation()">▶ Run diagram</button>
+        <button class="btn-step" onclick="stepFlowAnimation()">Step</button>
+        <button class="btn-step" onclick="resetFlowAnimation()">Reset</button>
+        <span class="proof-pill">Simplified</span>
+      </div>
+
+      <div class="sequence-diagram-card" id="sequence-container">
+        <!-- SVG Interactive Sequence Diagram generated by JS -->
+        <svg id="sequence-svg" width="100%" height="240" style="min-width: 650px;"></svg>
+      </div>
+
+      <div class="story-card">
+        <div style="font-weight: 600; font-size: 14px; margin-bottom: 6px;" id="flow-active-step-title">
+          Step 1: Interaction
+        </div>
+        <p style="font-size: 13px; color: var(--text); margin-bottom: 14px;" id="flow-active-step-desc">
+          Click Step or Run diagram to trace actor messages.
+        </p>
+        <details class="custom-accordion">
+          <summary>Left out of this diagram</summary>
+          <div class="accordion-body">
+            <ul class="bullet-list" id="flow-omitted-list"></ul>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- Tab 4: Code -->
+    <div id="tab-4" class="tab-panel">
+      <div class="code-trail-layout">
+        <!-- Sidebar -->
+        <div class="code-trail-sidebar">
+          <div class="code-trail-sidebar-title">Code on the trail</div>
+          <div class="code-trail-list" id="code-trail-sidebar-list"></div>
+        </div>
+
+        <!-- Code Content -->
+        <div class="story-card" style="margin-bottom: 0;">
+          <h3 style="font-size: 15px; margin-bottom: 4px;" id="code-detail-symbol">Symbol path</h3>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;" id="code-detail-desc"></p>
+
+          <div class="code-container">
+            <div class="code-top-header">
+              <span class="code-file-name" id="code-detail-file"></span>
+              <div class="code-actions">
+                <a class="code-link" id="code-detail-repo-link" style="display:none;" target="_blank" rel="noopener">View source ↗</a>
+                <span class="code-link" onclick="copyDetailCode(event)">Copy</span>
+              </div>
+            </div>
+            <table class="code-table" id="code-detail-table"></table>
+            <div class="code-footer-bar">
+              <span id="code-detail-lang">Python</span>
+              <span id="code-detail-lines"></span>
+            </div>
+          </div>
+
+          <details class="custom-accordion">
+            <summary>History & Blame Context</summary>
+            <div class="accordion-body" id="code-detail-history">
+              No commit history details recorded for this stop.
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 5: Your change -->
+    <div id="tab-5" class="tab-panel">
+      <div class="change-split-grid">
+        <div class="change-box active-box">
+          <div class="change-box-title" style="color: var(--primary);">Needs a change</div>
+          <ul class="bullet-list" id="blueprint-needs-change"></ul>
+        </div>
+
+        <div class="change-box">
+          <div class="change-box-title" style="color: var(--text-muted);">No change appears necessary</div>
+          <ul class="bullet-list" id="blueprint-no-change"></ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Where</div>
+        <p style="font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 20px;" id="change-target-symbol"></p>
+
+        <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px;">What your change must keep true</div>
+        <div class="change-split-grid" style="margin-bottom: 20px;">
+          <div class="change-box">
+            <div class="change-box-title" style="color: var(--primary);">Keep checking</div>
+            <ul class="bullet-list" id="change-keep-checking"></ul>
+          </div>
+          <div class="change-box">
+            <div class="change-box-title" style="color: var(--success);">Allow to vary</div>
+            <ul class="bullet-list" id="change-allow-vary"></ul>
+          </div>
+        </div>
+
+        <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">A first thing to try</div>
+        <p style="font-size: 13px; color: var(--text); margin-bottom: 20px;" id="change-first-try"></p>
+
+        <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Must not break</div>
+        <ul class="bullet-list" id="change-must-not-break" style="margin-bottom: 20px;"></ul>
+
+        <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Test to extend</div>
+        <p style="font-size: 13px; color: var(--text);" id="change-test-extend"></p>
+      </div>
+    </div>
+
+    <!-- Bottom "More" Accordions Section -->
+    <div style="margin-top: 32px;">
+      <div style="font-size: 14px; font-weight: 700; margin-bottom: 12px; color: var(--text);">More</div>
+
+      <details class="custom-accordion">
+        <summary>Proof & Reproduction Record</summary>
+        <div class="accordion-body" id="more-proof-body"></div>
+      </details>
+
+      <details class="custom-accordion">
+        <summary>Ask the maintainer</summary>
+        <div class="accordion-body">
+          <ul class="bullet-list" id="more-questions-list"></ul>
+        </div>
+      </details>
+
+      <details class="custom-accordion">
+        <summary>Files you can ignore</summary>
+        <div class="accordion-body" id="more-ignored-list"></div>
+      </details>
+
+      <details class="custom-accordion">
+        <summary>Glossary</summary>
+        <div class="accordion-body" id="more-glossary-list"></div>
+      </details>
+    </div>
+
+  </div>
+
+  <!-- Raw Payload Hydration Placeholder -->
+  <script id="trailblazer-raw-data" type="application/json">
+/*__TRAILBLAZER_DATA__*/
+  </script>
+
+  <script>
+    let traceData = {};
+    let activeTab = 1;
+    let currentDepth = 'simple';
+    let currentStoryStep = 0;
+    let activeCodeIndex = 0;
+    let currentFlowMessage = 0;
+    let flowTimer = null;
+    let fontScale = 1.0;
+
+    // Load data
+    try {
+      const rawText = document.getElementById('trailblazer-raw-data').textContent.trim();
+      if (rawText && !rawText.includes('__TRAILBLAZER_DATA__')) {
+        traceData = JSON.parse(rawText);
+      }
+    } catch (e) {
+      console.warn("Could not parse inline data payload:", e);
+    }
+
+    function init() {
+      if (!traceData.repository) return;
+
+      renderHeader();
+      renderSummaryCards();
+      renderFactsAndNotes();
+      renderStoryTab();
+      renderMapTab();
+      renderFlowTab();
+      renderCodeTab();
+      renderChangeTab();
+      renderMoreSection();
+
+      // Keyboard navigation
+      document.addEventListener('keydown', (e) => {
+        if (['1','2','3','4','5'].includes(e.key)) {
+          switchTab(parseInt(e.key));
+        } else if (e.key === 'ArrowLeft') {
+          if (activeTab === 1) navigateStep(-1);
+        } else if (e.key === 'ArrowRight') {
+          if (activeTab === 1) navigateStep(1);
+        }
+      });
+    }
+
+    function renderHeader() {
+      const issue = traceData.issue || {};
+      document.getElementById('repo-id-label').textContent = traceData.repository;
+      document.getElementById('issue-ref-label').textContent = `#${issue.id || ''}`;
+      document.getElementById('category-badge').textContent = issue.category || 'bug';
+      document.getElementById('main-title').textContent = issue.title || 'Codebase Investigation';
+    }
+
+    function renderSummaryCards() {
+      const summary = traceData.summary || {};
+      const ev = traceData.evidence || {};
+      document.getElementById('summary-problem').textContent = summary.problem || '-';
+      document.getElementById('summary-cause').textContent = summary.rootCause || '-';
+      document.getElementById('summary-target').textContent = summary.patchTarget || '-';
+
+      const proofLabel = document.getElementById('proof-label');
+      proofLabel.textContent = ev.level || 'Read in code';
+    }
+
+    function renderFactsAndNotes() {
+      const container = document.getElementById('facts-and-notes');
+      container.innerHTML = '';
+
+      // Metrics
+      (traceData.metrics || []).forEach(m => {
+        const div = document.createElement('div');
+        div.className = 'fact-line';
+        div.innerHTML = `<span class="fact-count">${m.value}</span> ${m.label}. ${m.explanation || ''}`;
+        container.appendChild(div);
+      });
+
+      // Evidence notes
+      const ev = traceData.evidence || {};
+      if (ev.whatSkipped) {
+        const div = document.createElement('div');
+        div.className = 'note-badge-row';
+        div.innerHTML = `<span class="status-badge badge-warn">Not verified</span> <span>${ev.whatSkipped}</span>`;
+        container.appendChild(div);
+      }
+
+      // Context notes
+      (traceData.contextNotes || []).forEach(note => {
+        const div = document.createElement('div');
+        div.className = 'note-badge-row';
+        const badgeClass = note.type === 'safety' ? 'badge-safety' : 'badge-note';
+        div.innerHTML = `<span class="status-badge ${badgeClass}">${note.type}</span> <span>${note.text}</span>`;
+        container.appendChild(div);
+      });
+    }
+
+    function switchTab(num) {
+      activeTab = num;
+      document.querySelectorAll('.nav-tab-btn').forEach((btn, idx) => {
+        btn.classList.toggle('active', idx + 1 === num);
+      });
+      document.querySelectorAll('.tab-panel').forEach((panel, idx) => {
+        panel.classList.toggle('active', idx + 1 === num);
+      });
+    }
+
+    function setDepth(depth) {
+      currentDepth = depth;
+      ['simple', 'detailed', 'deep'].forEach(d => {
+        document.getElementById(`btn-depth-${d}`).classList.toggle('active', d === depth);
+      });
+      renderStoryStepContent();
+    }
+
+    function changeTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+
+    function adjustFont(delta) {
+      fontScale = Math.max(0.8, Math.min(1.4, fontScale + delta));
+      document.documentElement.style.setProperty('--font-scale', fontScale);
+    }
+
+    /* STORY TAB */
+    function renderStoryTab() {
+      const trail = traceData.trail || [];
+      const stepper = document.getElementById('stepper-bar');
+      stepper.innerHTML = '<div class="stepper-line"></div>';
+
+      const labels = ['Problem', 'Where', 'Walk through', 'What needs to change', 'Your change'];
+      labels.forEach((lbl, idx) => {
+        const node = document.createElement('div');
+        node.className = `step-node ${idx < currentStoryStep ? 'completed' : ''} ${idx === currentStoryStep ? 'active' : ''}`;
+        node.onclick = () => { currentStoryStep = Math.min(idx, trail.length - 1); renderStoryTab(); };
+        node.innerHTML = `
+          <div class="step-circle">${idx < currentStoryStep ? '✓' : idx + 1}</div>
+          <div class="step-label">${lbl}</div>
+        `;
+        stepper.appendChild(node);
+      });
+
+      // Mini Trail Step Cards
+      const stepsBar = document.getElementById('trail-mini-steps');
+      stepsBar.innerHTML = '';
+      trail.forEach((stop, idx) => {
+        const isCurrent = idx === currentStoryStep;
+        const isProblem = stop.role === 'origin';
+        const isPatch = stop.role === 'patch';
+
+        let badgeClass = 'step-role-current';
+        let badgeText = 'You are here';
+        let stepCardClass = isCurrent ? 'current' : '';
+
+        if (isProblem) {
+          stepCardClass += ' problem';
+          badgeClass = 'step-role-problem';
+          badgeText = 'The problem is here';
+        } else if (isPatch) {
+          stepCardClass += ' patch';
+          badgeClass = 'step-role-patch';
+          badgeText = 'Your change goes here';
+        }
+
+        const div = document.createElement('div');
+        div.className = `trail-step-card ${stepCardClass}`;
+        div.onclick = () => { currentStoryStep = idx; renderStoryTab(); };
+        div.innerHTML = `
+          <div style="font-weight:600; font-size:12px; margin-bottom:4px;">${stop.title}</div>
+          ${isCurrent || isProblem || isPatch ? `<div class="step-role-badge ${badgeClass}">${badgeText}</div>` : ''}
+        `;
+        stepsBar.appendChild(div);
+      });
+
+      renderStoryStepContent();
+    }
+
+    function getRepoFileUrl(file, lineStart, lineEnd) {
+      const repo = traceData.repository || '';
+      const commit = (traceData.issue && traceData.issue.commit) ? traceData.issue.commit : 'main';
+      if (!repo || !file) return null;
+
+      let base = repo.trim();
+      if (!base.startsWith('http://') && !base.startsWith('https://')) {
+        base = `https://${base}`;
+      }
+      base = base.replace(/\.git$/, '');
+
+      if (base.includes('github.com') || base.includes('gitlab.com')) {
+        const hash = lineStart ? (lineEnd && lineEnd !== lineStart ? `#L${lineStart}-L${lineEnd}` : `#L${lineStart}`) : '';
+        const blobKeyword = base.includes('gitlab.com') ? '-/blob' : 'blob';
+        return `${base}/${blobKeyword}/${commit}/${file}${hash}`;
+      } else if (base.includes('bitbucket.org')) {
+        const hash = lineStart ? `#lines-${lineStart}` : '';
+        return `${base}/src/${commit}/${file}${hash}`;
+      }
+      return null;
+    }
+
+    function renderStoryStepContent() {
+      const trail = traceData.trail || [];
+      const stop = trail[currentStoryStep] || trail[0];
+      if (!stop) return;
+
+      document.getElementById('story-step-indicator').textContent = `Chapter 3 · Step ${currentStoryStep + 1} of ${trail.length}`;
+      document.getElementById('story-step-title').textContent = stop.title;
+
+      const exp = stop.explanation || {};
+      document.getElementById('story-step-lead').textContent = exp[currentDepth] || exp.simple || stop.description || '';
+
+      document.getElementById('story-file-name').textContent = stop.file;
+      document.getElementById('story-code-commit').textContent = `Lines ${stop.lineStart || 1}-${stop.lineEnd || 10} · ${(traceData.issue && traceData.issue.commit ? traceData.issue.commit.slice(0, 7) : 'head')}`;
+
+      // Update source repository link
+      const repoUrl = getRepoFileUrl(stop.file, stop.lineStart, stop.lineEnd);
+      const linkEl = document.getElementById('story-repo-link');
+      if (linkEl) {
+        if (repoUrl) {
+          linkEl.href = repoUrl;
+          linkEl.style.display = 'inline';
+          linkEl.textContent = repoUrl.includes('bitbucket') ? 'View on Bitbucket ↗' : 'View on GitHub ↗';
+        } else {
+          linkEl.style.display = 'none';
+        }
+      }
+
+      // Code rendering
+      renderCodeTable('story-code-table', stop);
+
+      // Deep section
+      const deeperBox = document.getElementById('story-deeper-content');
+      deeperBox.textContent = exp.deep || "No additional edge-case architecture context provided for this stop.";
+
+      // Back / Next disabled state
+      document.getElementById('btn-step-back').disabled = currentStoryStep === 0;
+      document.getElementById('btn-step-next').disabled = currentStoryStep >= trail.length - 1;
+    }
+
+    function navigateStep(direction) {
+      const trail = traceData.trail || [];
+      const target = currentStoryStep + direction;
+      if (target >= 0 && target < trail.length) {
+        currentStoryStep = target;
+        renderStoryTab();
+      }
+    }
+
+    function renderCodeTable(elementId, stop) {
+      const table = document.getElementById(elementId);
+      table.innerHTML = '';
+      const lines = (stop.code && stop.code.lines) ? stop.code.lines.split('\n') : ['// No snippet captured'];
+      const start = stop.lineStart || 1;
+      const highlights = stop.highlightLines || [];
+
+      lines.forEach((line, idx) => {
+        const lineNum = start + idx;
+        const isHighlighted = highlights.includes(lineNum) || idx === 0;
+        const tr = document.createElement('tr');
+        tr.className = `line-row ${isHighlighted ? 'highlighted' : ''}`;
+        tr.innerHTML = `
+          <td class="line-num">${lineNum}</td>
+          <td class="code-line">${escapeHtml(line)}</td>
+        `;
+        table.appendChild(tr);
+      });
+
+      if (stop.code && stop.code.pointer) {
+        const ptrTr = document.createElement('tr');
+        ptrTr.className = 'pointer-row';
+        ptrTr.innerHTML = `
+          <td></td>
+          <td>↑ ${escapeHtml(stop.code.pointer)}</td>
+        `;
+        table.appendChild(ptrTr);
+      }
+    }
+
+    /* MAP TAB */
+    function renderMapTab() {
+      const nodesContainer = document.getElementById('map-nodes-grid');
+      nodesContainer.innerHTML = '';
+
+      const trailFiles = (traceData.trail || []).map(s => s.file.split('/')[0] + '/');
+      const uniquePackages = Array.from(new Set(trailFiles));
+
+      uniquePackages.forEach(pkg => {
+        const box = document.createElement('div');
+        box.className = 'map-box on-trail';
+        box.innerHTML = `
+          <div class="map-box-title">${pkg}</div>
+          <div class="map-box-sub">On the trail · zoom in →</div>
+        `;
+        nodesContainer.appendChild(box);
+      });
+
+      // Sample nearby modules
+      ['shared-client/', 'internal-gateway/', 'analytics-adapter/'].forEach(pkg => {
+        if (!uniquePackages.includes(pkg)) {
+          const box = document.createElement('div');
+          box.className = 'map-box nearby';
+          box.innerHTML = `
+            <div class="map-box-title">${pkg}</div>
+            <div class="map-box-sub">Nearby module</div>
+          `;
+          nodesContainer.appendChild(box);
+        }
+      });
+    }
+
+    /* FLOW TAB */
+    function renderFlowTab() {
+      const flow = traceData.flow || {};
+      const interactions = flow.interactions || [];
+      let actors = flow.actors;
+      if (!actors || actors.length === 0) {
+        // Derive actors from interactions if available
+        const derived = new Set();
+        interactions.forEach(i => {
+          if (i.from) derived.add(i.from);
+          if (i.to) derived.add(i.to);
+        });
+        actors = derived.size > 0 ? Array.from(derived) : ['Caller', 'Component', 'Service'];
+      }
+
+      const svg = document.getElementById('sequence-svg');
+
+      if (interactions.length === 0) {
+        document.getElementById('flow-active-step-title').textContent = "No interaction sequence";
+        document.getElementById('flow-active-step-desc').textContent = "This trace focused on static code inspection and did not record component interactions.";
+        svg.setAttribute('viewBox', '0 0 760 120');
+        svg.setAttribute('height', '120');
+        svg.innerHTML = `
+          <rect width="100%" height="100%" fill="var(--card-subtle)" rx="6"/>
+          <text x="380" y="65" text-anchor="middle" fill="var(--text-muted)" font-family="var(--font-sans)" font-size="13">No interaction sequence steps defined in trace</text>
+        `;
+        document.getElementById('flow-omitted-list').innerHTML = '<li>None</li>';
+        return;
+      }
+
+      // Layout constants
+      const ACTOR_BOX_W = 130;
+      const COL_PADDING = 60;
+      const ACTOR_Y = 10;
+      const ACTOR_H = 28;
+      const LIFELINE_START = ACTOR_Y + ACTOR_H;
+      const MSG_START_Y = LIFELINE_START + 32;
+      const MSG_ROW_H = 42;
+      const svgWidth = Math.max(760, actors.length * (ACTOR_BOX_W + COL_PADDING) + COL_PADDING);
+      const svgHeight = MSG_START_Y + interactions.length * MSG_ROW_H + 20;
+
+      svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+      svg.setAttribute('height', svgHeight);
+      svg.innerHTML = '';
+
+      // ── Arrowhead marker definitions ──────────────────────────────────────
+      const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+
+      function makeMarker(id, color) {
+        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+        marker.setAttribute('id', id);
+        marker.setAttribute('viewBox', '0 0 10 10');
+        marker.setAttribute('refX', '8');
+        marker.setAttribute('refY', '5');
+        marker.setAttribute('markerUnits', 'strokeWidth');
+        marker.setAttribute('markerWidth', '7');
+        marker.setAttribute('markerHeight', '7');
+        marker.setAttribute('orient', 'auto');
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+        path.setAttribute('fill', color);
+        marker.appendChild(path);
+        return marker;
+      }
+
+      // Resolve CSS variable colors to concrete hex for SVG marker fill
+      const style = getComputedStyle(document.documentElement);
+      const colorNormal  = style.getPropertyValue('--text-muted').trim()  || '#8b949e';
+      const colorPrimary = style.getPropertyValue('--primary').trim()     || '#0969da';
+      const colorDanger  = style.getPropertyValue('--danger').trim()      || '#cf222e';
+
+      defs.appendChild(makeMarker('arrow-normal',  colorNormal));
+      defs.appendChild(makeMarker('arrow-active',  colorPrimary));
+      defs.appendChild(makeMarker('arrow-failure', colorDanger));
+      svg.appendChild(defs);
+
+      // ── Column X positions (evenly spaced) ────────────────────────────────
+      const colSpacing = svgWidth / (actors.length + 1);
+      const actorX = actors.map((_, i) => Math.round((i + 1) * colSpacing));
+
+      // ── Draw actor boxes + lifelines ──────────────────────────────────────
+      actors.forEach((actor, i) => {
+        const cx = actorX[i];
+        const bx = cx - ACTOR_BOX_W / 2;
+
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', bx);
+        rect.setAttribute('y', ACTOR_Y);
+        rect.setAttribute('width', ACTOR_BOX_W);
+        rect.setAttribute('height', ACTOR_H);
+        rect.setAttribute('rx', 4);
+        rect.setAttribute('fill', 'var(--card-subtle)');
+        rect.setAttribute('stroke', 'var(--border)');
+        svg.appendChild(rect);
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', cx);
+        text.setAttribute('y', ACTOR_Y + 18);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'middle');
+        text.setAttribute('fill', 'var(--text)');
+        text.setAttribute('font-size', '12');
+        text.setAttribute('font-family', 'var(--font-sans)');
+        text.setAttribute('font-weight', '600');
+        text.textContent = actor;
+        svg.appendChild(text);
+
+        const lifeline = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        lifeline.setAttribute('x1', cx);
+        lifeline.setAttribute('y1', LIFELINE_START);
+        lifeline.setAttribute('x2', cx);
+        lifeline.setAttribute('y2', svgHeight - 8);
+        lifeline.setAttribute('stroke', 'var(--border)');
+        lifeline.setAttribute('stroke-dasharray', '5 4');
+        lifeline.setAttribute('stroke-width', '1.5');
+        svg.appendChild(lifeline);
+      });
+
+      // ── Draw message arrows ───────────────────────────────────────────────
+      interactions.forEach((msg, idx) => {
+        const fromIdx = actors.indexOf(msg.from);
+        const toIdx   = actors.indexOf(msg.to);
+        const y = MSG_START_Y + idx * MSG_ROW_H;
+
+        const isFailure = msg.isFailurePoint;
+        const isCurrent = idx === currentFlowMessage;
+
+        const strokeColor = isFailure ? 'var(--danger)'
+                          : isCurrent  ? 'var(--primary)'
+                          :              'var(--text-muted)';
+        const markerId = isFailure ? 'arrow-failure'
+                       : isCurrent  ? 'arrow-active'
+                       :              'arrow-normal';
+        const strokeW = isCurrent ? '2' : '1.5';
+
+        // Offset line endpoints so the arrowhead doesn't sit on top of the lifeline
+        const x1raw = actorX[fromIdx];
+        const x2raw = actorX[toIdx];
+        const MARGIN = 8;
+        const goingRight = x2raw > x1raw;
+        const x1 = goingRight ? x1raw + MARGIN : x1raw - MARGIN;
+        const x2 = goingRight ? x2raw - MARGIN : x2raw + MARGIN;
+
+        // Self-call: draw a small U-shaped arc instead of a straight line
+        if (fromIdx === toIdx) {
+          const r = 20;
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('d', `M ${x1raw} ${y} C ${x1raw + 50} ${y}, ${x1raw + 50} ${y + 20}, ${x2raw} ${y + 20}`);
+          path.setAttribute('fill', 'none');
+          path.setAttribute('stroke', strokeColor);
+          path.setAttribute('stroke-width', strokeW);
+          path.setAttribute('marker-end', `url(#${markerId})`);
+          svg.appendChild(path);
+        } else {
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', x1);
+          line.setAttribute('y1', y);
+          line.setAttribute('x2', x2);
+          line.setAttribute('y2', y);
+          line.setAttribute('stroke', strokeColor);
+          line.setAttribute('stroke-width', strokeW);
+          line.setAttribute('marker-end', `url(#${markerId})`);
+          svg.appendChild(line);
+        }
+
+        // Message label (above the arrow, centred between the two actors)
+        const textX = (actorX[fromIdx] + actorX[toIdx]) / 2;
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('x', textX);
+        label.setAttribute('y', y - 7);
+        label.setAttribute('text-anchor', 'middle');
+        label.setAttribute('fill', isFailure ? 'var(--danger)' : 'var(--text)');
+        label.setAttribute('font-size', '11');
+        label.setAttribute('font-family', 'var(--font-sans)');
+        label.setAttribute('font-weight', isCurrent ? '700' : '400');
+        label.textContent = `${idx + 1}. ${msg.action}`;
+        svg.appendChild(label);
+      });
+
+      // Left-out list
+      const omitted = flow.omittedSteps || ['Network serialization details', 'Heartbeat timers'];
+      document.getElementById('flow-omitted-list').innerHTML = omitted.map(s => `<li>${s}</li>`).join('');
+
+      updateFlowStepInfo();
+    }
+
+    function updateFlowStepInfo() {
+      const flow = traceData.flow || {};
+      const interactions = flow.interactions || [];
+      const msg = interactions[currentFlowMessage];
+      if (!msg) return;
+
+      document.getElementById('flow-active-step-title').textContent = `Step ${currentFlowMessage + 1} of ${interactions.length} · ${msg.from} → ${msg.to}`;
+      document.getElementById('flow-active-step-desc').textContent = `${msg.action}${msg.error ? ' ➔ ' + msg.error : ''}`;
+    }
+
+    function stepFlowAnimation() {
+      const interactions = (traceData.flow || {}).interactions || [];
+      currentFlowMessage = (currentFlowMessage + 1) % Math.max(1, interactions.length);
+      renderFlowTab();
+    }
+
+    function resetFlowAnimation() {
+      clearInterval(flowTimer);
+      flowTimer = null;
+      currentFlowMessage = 0;
+      renderFlowTab();
+    }
+
+    function runFlowAnimation() {
+      if (flowTimer) {
+        clearInterval(flowTimer);
+        flowTimer = null;
+        return;
+      }
+      flowTimer = setInterval(() => {
+        stepFlowAnimation();
+      }, 1500);
+    }
+
+    /* CODE TAB */
+    function renderCodeTab() {
+      const trail = traceData.trail || [];
+      const list = document.getElementById('code-trail-sidebar-list');
+      list.innerHTML = '';
+
+      trail.forEach((stop, idx) => {
+        const item = document.createElement('div');
+        item.className = `code-trail-item ${idx === activeCodeIndex ? 'active' : ''}`;
+        item.onclick = () => { activeCodeIndex = idx; renderCodeTab(); };
+
+        let dotColor = 'dot-blue';
+        if (stop.role === 'origin') dotColor = 'dot-red';
+        if (stop.role === 'patch') dotColor = 'dot-green';
+
+        item.innerHTML = `
+          <div class="dot-indicator ${dotColor}"></div>
+          <div>
+            <div style="font-weight:600; font-size:12px;">${stop.title}</div>
+            <div style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono);">${stop.file.split('/').pop()}:${stop.lineStart || 1}</div>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+
+      const currentStop = trail[activeCodeIndex] || trail[0];
+      if (!currentStop) return;
+
+      document.getElementById('code-detail-symbol').textContent = `${currentStop.file} · ${currentStop.title}`;
+      document.getElementById('code-detail-desc').textContent = currentStop.description || '';
+      document.getElementById('code-detail-file').textContent = currentStop.file;
+      document.getElementById('code-detail-lines').textContent = `Lines ${currentStop.lineStart || 1}-${currentStop.lineEnd || 10}`;
+
+      // Update source repository link
+      const repoUrl = getRepoFileUrl(currentStop.file, currentStop.lineStart, currentStop.lineEnd);
+      const detailLinkEl = document.getElementById('code-detail-repo-link');
+      if (detailLinkEl) {
+        if (repoUrl) {
+          detailLinkEl.href = repoUrl;
+          detailLinkEl.style.display = 'inline';
+          detailLinkEl.textContent = repoUrl.includes('bitbucket') ? 'View on Bitbucket ↗' : 'View on GitHub ↗';
+        } else {
+          detailLinkEl.style.display = 'none';
+        }
+      }
+
+      renderCodeTable('code-detail-table', currentStop);
+    }
+
+    /* YOUR CHANGE TAB */
+    function renderChangeTab() {
+      const bp = traceData.changeBlueprint || {};
+      const needs = bp.targetFiles || [];
+      const needsEl = document.getElementById('blueprint-needs-change');
+      if (needs.length > 0) {
+        needsEl.innerHTML = needs.map(f => `<li><strong>${escapeHtml(f)}</strong></li>`).join('');
+      } else {
+        needsEl.innerHTML = '<li>Files identified during investigation</li>';
+      }
+
+      const noChangeList = bp.noChange || ['Public APIs outside targeted modules', 'Unrelated service boundaries'];
+      document.getElementById('blueprint-no-change').innerHTML = noChangeList.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+
+      const patchStop = (traceData.trail || []).find(s => s.role === 'patch') || (traceData.trail || [])[0];
+      const targetSymbol = patchStop ? `${patchStop.file}:${patchStop.title}` : (needs[0] || 'Target file');
+      document.getElementById('change-target-symbol').textContent = targetSymbol;
+
+      const keepChecking = bp.mustKeepTrue || [];
+      document.getElementById('change-keep-checking').innerHTML = keepChecking.length > 0 
+        ? keepChecking.map(i => `<li>${escapeHtml(i)}</li>`).join('')
+        : '<li>Preserve existing system invariants and contracts</li>';
+
+      const allowVary = bp.permittedToChange || [];
+      document.getElementById('change-allow-vary').innerHTML = allowVary.length > 0
+        ? allowVary.map(i => `<li>${escapeHtml(i)}</li>`).join('')
+        : '<li>Internal helper structure and variable naming</li>';
+
+      const firstTry = bp.checklist && bp.checklist.length > 0 ? bp.checklist[0] : (bp.firstThing || (traceData.summary ? traceData.summary.patchTarget || traceData.summary.fix : 'Review patch target stop'));
+      document.getElementById('change-first-try').textContent = firstTry;
+
+      const mustNotBreak = bp.mustNotBreak || bp.mustKeepTrue || [];
+      document.getElementById('change-must-not-break').innerHTML = mustNotBreak.length > 0
+        ? mustNotBreak.map(i => `<li>${escapeHtml(i)}</li>`).join('')
+        : '<li>Existing unit tests and baseline functionality</li>';
+
+      document.getElementById('change-test-extend').textContent = bp.verificationCommand || 'Run test suite';
+    }
+
+    /* MORE SECTION */
+    function renderMoreSection() {
+      // Proof
+      const ev = traceData.evidence || {};
+      document.getElementById('more-proof-body').innerHTML = `
+        <div style="margin-bottom:8px;"><strong>Level:</strong> ${ev.level || 'Read in code'} (Confidence: ${ev.confidence || 0.95})</div>
+        <div style="margin-bottom:8px;"><strong>Ran:</strong> ${ev.whatRan || 'None'}</div>
+        <div style="margin-bottom:8px;"><strong>Skipped:</strong> ${ev.whatSkipped || 'None'}</div>
+        ${ev.commandsRun ? `<div><strong>Commands:</strong> <code style="background:var(--code-bg); padding:2px 6px; border-radius:4px;">${ev.commandsRun.join('; ')}</code></div>` : ''}
+      `;
+
+      // Questions
+      const questions = traceData.maintainerQuestions || [];
+      document.getElementById('more-questions-list').innerHTML = questions.map(q => `<li>${q}</li>`).join('') || '<li>No pending questions.</li>';
+
+      // Ignored
+      const ignored = traceData.irrelevantFiles || [];
+      document.getElementById('more-ignored-list').innerHTML = ignored.map(f => `
+        <div style="margin-bottom:6px;"><strong>${f.file}</strong> — ${f.reason}</div>
+      `).join('') || '<p style="color:var(--text-muted);">None.</p>';
+
+      // Glossary
+      const glossary = traceData.glossary || {};
+      document.getElementById('more-glossary-list').innerHTML = Object.entries(glossary).map(([k, v]) => `
+        <div style="margin-bottom:8px;"><strong style="color:var(--primary);">${k}:</strong> ${v}</div>
+      `).join('') || '<p style="color:var(--text-muted);">No entries.</p>';
+    }
+
+    function copyStoryCode(event) {
+      const trail = traceData.trail || [];
+      const stop = trail[currentStoryStep];
+      if (stop && stop.code && stop.code.lines) {
+        navigator.clipboard.writeText(stop.code.lines);
+        const btn = event ? (event.currentTarget || event.target) : null;
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = 'Copied!';
+          btn.style.color = 'var(--success)';
+          setTimeout(() => {
+            btn.textContent = orig;
+            btn.style.color = '';
+          }, 1500);
+        }
+      }
+    }
+
+    function copyDetailCode(event) {
+      const trail = traceData.trail || [];
+      const stop = trail[activeCodeIndex];
+      if (stop && stop.code && stop.code.lines) {
+        navigator.clipboard.writeText(stop.code.lines);
+        const btn = event ? (event.currentTarget || event.target) : null;
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = 'Copied!';
+          btn.style.color = 'var(--success)';
+          setTimeout(() => {
+            btn.textContent = orig;
+            btn.style.color = '';
+          }, 1500);
+        }
+      }
+    }
+
+    function escapeHtml(str) {
+      return (str || '')
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
