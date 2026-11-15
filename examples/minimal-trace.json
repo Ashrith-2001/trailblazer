@@ -1,0 +1,101 @@
+{
+  "version": "1.0.0",
+  "repository": "github.com/acme/sample-api",
+  "issue": {
+    "id": "42",
+    "url": "https://github.com/acme/sample-api/issues/42",
+    "title": "Uncaught ValueError when parsing empty authorization bearer token",
+    "category": "bug",
+    "commit": "8f3b21c"
+  },
+  "summary": {
+    "problem": "Requests with empty bearer token header crash with unhandled ValueError.",
+    "rootCause": "split(' ')[1] slice assumes token string exists without verifying header format length.",
+    "patchTarget": "app/auth.py: check split parts length before accessing token index."
+  },
+  "evidence": {
+    "level": "static-analysis",
+    "confidence": 0.95,
+    "whatRan": "Inspected app/auth.py and verified header extraction logic.",
+    "whatSkipped": "End-to-end integration test container."
+  },
+  "trail": [
+    {
+      "id": "stop-1",
+      "role": "entry",
+      "title": "HTTP request authentication middleware",
+      "description": "Extracts Authorization header from incoming HTTP request.",
+      "file": "app/auth.py",
+      "lineStart": 14,
+      "lineEnd": 22,
+      "highlightLines": [18],
+      "explanation": {
+        "simple": "When a request arrives, the server checks for an Authorization header.",
+        "detailed": "authenticate_request() retrieves headers.get('Authorization') and passes it to token parser.",
+        "deep": "Introduced in v1.0 to enforce token verification across all non-public API endpoints."
+      },
+      "code": {
+        "lines": "def authenticate_request(request):\n    header = request.headers.get('Authorization')\n    if not header:\n        raise Unauthorized('Missing header')\n    return parse_bearer_token(header)",
+        "pointer": "Passes raw header directly to parser"
+      }
+    },
+    {
+      "id": "stop-2",
+      "role": "origin",
+      "title": "Unsafe bearer token splitting",
+      "description": "Splits header string on space without validating slice bounds.",
+      "file": "app/auth.py",
+      "lineStart": 25,
+      "lineEnd": 32,
+      "highlightLines": [28],
+      "explanation": {
+        "simple": "The parser expects exactly 'Bearer <token>' and crashes if the token part is missing.",
+        "detailed": "header.split(' ')[1] raises IndexError or ValueError if the header is just 'Bearer' or malformed whitespace.",
+        "deep": "Assumed callers always conform to RFC 6750 format without defensive validation."
+      },
+      "code": {
+        "lines": "def parse_bearer_token(header: str) -> str:\n    parts = header.split(' ')\n    token = parts[1]\n    return verify_jwt(token)",
+        "pointer": "parts[1] crashes when header is 'Bearer' with no trailing token"
+      }
+    },
+    {
+      "id": "stop-3",
+      "role": "patch",
+      "title": "Safe header validation guard",
+      "description": "Where bounds checking and clean 401 rejection should be added.",
+      "file": "app/auth.py",
+      "lineStart": 26,
+      "lineEnd": 33,
+      "highlightLines": [28],
+      "explanation": {
+        "simple": "Validate that the split produced two parts before accessing index 1.",
+        "detailed": "Check len(parts) == 2 and parts[0] == 'Bearer', raising Unauthorized error if invalid.",
+        "deep": "Maintains strict RFC 6750 compliance while converting 500 crashes to clean 401 responses."
+      },
+      "code": {
+        "lines": "def parse_bearer_token(header: str) -> str:\n    parts = header.strip().split(' ')\n    if len(parts) != 2 or parts[0] != 'Bearer':\n        raise Unauthorized('Malformed Authorization header')\n    return verify_jwt(parts[1])",
+        "pointer": "Validate bounds before index access"
+      }
+    }
+  ],
+  "changeBlueprint": {
+    "targetFiles": [
+      "app/auth.py"
+    ],
+    "mustKeepTrue": [
+      "Valid Bearer tokens must continue to verify cleanly without added latency.",
+      "Missing header must continue returning 401 Unauthorized."
+    ],
+    "permittedToChange": [
+      "Internal token split validation error message text."
+    ],
+    "verificationCommand": "pytest tests/test_auth.py -k test_empty_bearer_header",
+    "suggestedTestCases": [
+      "Pass Authorization header 'Bearer ' with trailing space; assert 401 response."
+    ],
+    "checklist": [
+      "Check len(parts) before indexing parts[1]",
+      "Verify tests pass with both missing and malformed headers"
+    ]
+  }
+}

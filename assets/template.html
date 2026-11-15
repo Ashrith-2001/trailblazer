@@ -1435,6 +1435,19 @@
 
       const svg = document.getElementById('sequence-svg');
 
+      if (interactions.length === 0) {
+        document.getElementById('flow-active-step-title').textContent = "No interaction sequence";
+        document.getElementById('flow-active-step-desc').textContent = "This trace focused on static code inspection and did not record component interactions.";
+        svg.setAttribute('viewBox', '0 0 760 120');
+        svg.setAttribute('height', '120');
+        svg.innerHTML = `
+          <rect width="100%" height="100%" fill="var(--card-subtle)" rx="6"/>
+          <text x="380" y="65" text-anchor="middle" fill="var(--text-muted)" font-family="var(--font-sans)" font-size="13">No interaction sequence steps defined in trace</text>
+        `;
+        document.getElementById('flow-omitted-list').innerHTML = '<li>None</li>';
+        return;
+      }
+
       // Layout constants
       const ACTOR_BOX_W = 130;
       const COL_PADDING = 60;

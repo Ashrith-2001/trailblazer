@@ -128,6 +128,8 @@ Core Operations:
   --check-only      Validate schema and repository bounds without compiling HTML
 
 Workflows & Utilities:
+  --init SLUG       Scaffold a new .tbz/<slug>/trace.json template from the CLI
+  --watch           Watch trace.json for file modifications and automatically recompile
   --bundle          Package trace.json, HTML report, and manifest into shareable .tbz.zip
   --dashboard [DIR] Scan directory (default: .tbz/) and generate multi-trace history dashboard
   --prefilter QUERY Run local zero-token regex search across repository files
@@ -151,7 +153,8 @@ trailblazer/
 ├── references/
 │   └── trace-schema.md     # Canonical trace.json schema definition
 └── examples/
-    └── example-trace.json  # Comprehensive reference investigation
+    ├── example-trace.json  # Comprehensive reference investigation (Nova Engine)
+    └── minimal-trace.json  # Clean, minimal 3-stop reference investigation
 ```
 
 ---

@@ -515,9 +515,43 @@ def main():
     parser.add_argument("--bundle", action="store_true", help="Package trace and report into shareable .tbz.zip archive")
     parser.add_argument("--dashboard", type=str, nargs="?", const=".tbz", default=None, help="Scan directory (default .tbz) and build sessions dashboard")
     parser.add_argument("--prefilter", type=str, default=None, help="Run zero-token regex search on repository clone")
+    parser.add_argument("--init", type=str, default=None, metavar="SLUG", help="Scaffold a new .tbz/<slug>/trace.json template")
+    parser.add_argument("--watch", action="store_true", help="Watch trace.json for file modifications and automatically recompile")
 
     args = parser.parse_args()
     script_dir = Path(__file__).resolve().parent
+
+    # Init Mode
+    if args.init:
+        slug = args.init.strip()
+        repo_target = Path(args.repo).resolve() if args.repo else Path.cwd()
+        tbz_path = repo_target / ".tbz" / slug
+        tbz_path.mkdir(parents=True, exist_ok=True)
+        target_trace = tbz_path / "trace.json"
+        if target_trace.exists():
+            print(f"{yellow('Warning:')} Investigation already exists at: {target_trace}")
+            sys.exit(0)
+
+        min_example = script_dir.parent / "examples" / "minimal-trace.json"
+        if min_example.exists():
+            template_data = json.loads(min_example.read_text(encoding="utf-8"))
+            template_data["repository"] = str(repo_target)
+            template_data["issue"]["id"] = slug
+            template_data["issue"]["title"] = f"Investigation: {slug}"
+            target_trace.write_text(json.dumps(template_data, indent=2), encoding="utf-8")
+        else:
+            target_trace.write_text("{}", encoding="utf-8")
+
+        git_exclude = repo_target / ".git" / "info" / "exclude"
+        if git_exclude.exists():
+            content = git_exclude.read_text(encoding="utf-8")
+            if ".tbz/" not in content:
+                with git_exclude.open("a", encoding="utf-8") as f:
+                    f.write("\n# Trailblazer investigation data\n.tbz/\n")
+
+        print(f"\n{green('✔ Initialized new Trailblazer investigation:')} {bold(str(target_trace))}")
+        print(f"Edit the trace file with findings, then compile:\n  {cyan(f'python3 scripts/compile.py {target_trace} --serve')}\n")
+        sys.exit(0)
 
     # Prefilter Mode
     if args.prefilter:
@@ -615,6 +649,25 @@ def main():
     except Exception as exc:
         print(f"{red('Compilation error:')} {exc}", file=sys.stderr)
         sys.exit(2)
+
+    if args.watch:
+        def _watch_loop():
+            last_mtime = trace_path.stat().st_mtime
+            while True:
+                time.sleep(1.0)
+                try:
+                    cur = trace_path.stat().st_mtime
+                    if cur > last_mtime:
+                        last_mtime = cur
+                        print(f"\n{cyan('↻ Change detected in')} {trace_path.name}{cyan(', recompiling...')}")
+                        data = json.loads(trace_path.read_text(encoding="utf-8"))
+                        compiler.compile(data)
+                        print(f"{green('✔ Recompiled successfully at')} {time.strftime('%H:%M:%S')}")
+                except Exception as ex:
+                    print(f"{yellow('Watch notice:')} {ex}")
+        t = threading.Thread(target=_watch_loop, daemon=True)
+        t.start()
+        print(f"{cyan('👀 Watching')} {trace_path.name} {cyan('for changes...')}")
 
     if args.serve:
         port = find_free_port(args.port)
