@@ -468,8 +468,12 @@ def serve_directory(serve_dir: Path, port: int, auto_open: bool = True):
     server = TCPServer(("127.0.0.1", port), QuietHandler)
     url = f"http://127.0.0.1:{port}/"
 
-    print(f"\n{bold(green('⚡ Trailblazer server running at:'))} {bold(cyan(url))}")
-    print(f"{yellow('Press Ctrl+C to stop the server.')}\n")
+    banner_w = 60
+    print("\n" + cyan("┌" + "─" * banner_w + "┐"))
+    print(cyan("│") + bold(green("  🧭 Trailblazer Investigation Dashboard".ljust(banner_w))) + cyan("│"))
+    print(cyan("│") + f"  → {bold(url)}".ljust(banner_w + (len(bold(url)) - len(url))) + cyan("│"))
+    print(cyan("│") + "  Press Ctrl+C to stop the server".ljust(banner_w) + cyan("│"))
+    print(cyan("└" + "─" * banner_w + "┘\n"))
 
     if auto_open:
         threading.Thread(target=lambda: (time.sleep(0.3), webbrowser.open(url)), daemon=True).start()
@@ -562,10 +566,28 @@ def main():
         for w in warnings:
             print(f"  {yellow('•')} {w}")
 
+    def format_hint(err: str) -> Optional[str]:
+        if "Missing required top-level property" in err:
+            return "Ensure all required top-level keys ('repository', 'issue', 'summary', 'evidence', 'trail', 'changeBlueprint') are defined."
+        if "invalid role" in err:
+            return "Allowed trail stop roles are: 'entry', 'transit', 'origin', 'patch'."
+        if "must be an object" in err:
+            return "Verify this property is a valid JSON object/dictionary, not a string or array."
+        if "Repo check: File not found" in err:
+            return "File paths must be relative to the repository root clone (e.g. 'src/module/file.py')."
+        if "Line range" in err:
+            return "Cross-check line numbers with actual lines on disk or run git grep."
+        if "reproduced-real" in err and "commandsRun" in err:
+            return "Either list commandsRun: ['pytest ...'] or change evidence.level to 'static-analysis'."
+        return None
+
     if errors:
         print(f"\n{bold(red(f'❌ {len(errors)} Validation Error(s):'))}")
         for e in errors:
             print(f"  {red('•')} {e}")
+            hint = format_hint(e)
+            if hint:
+                print(f"    {cyan('Tip:')} {hint}")
         print(f"\n{red('Validation failed. Please correct trace.json and re-run.')}")
         sys.exit(1)
 

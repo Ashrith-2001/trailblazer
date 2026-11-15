@@ -370,8 +370,24 @@ def handle_prefilter(args: Dict[str, Any]) -> str:
 
 
 def handle_validate(args: Dict[str, Any]) -> str:
-    trace_path = args.get("trace_path", "")
-    cmd = [sys.executable, str(COMPILE_SCRIPT), trace_path, "--check-only"]
+    trace_path_str = (args.get("trace_path") or "").strip()
+    if not trace_path_str:
+        return "Error: 'trace_path' is required. Provide path to your investigation trace.json (e.g. .tbz/my-issue/trace.json)."
+
+    # Guard against passing a source code file directly
+    source_exts = [".py", ".ts", ".js", ".go", ".rs", ".java", ".cpp", ".c", ".rb", ".php", ".cs"]
+    if any(trace_path_str.endswith(ext) for ext in source_exts):
+        return (
+            f"Error: '{trace_path_str}' is a source code file, not an investigation trace.\n"
+            f"trailblazer_validate checks the structured investigation document (trace.json).\n\n"
+            f"Correct workflow:\n"
+            f"  1. Call trailblazer_start with issue_id and title to scaffold .tbz/<id>/trace.json\n"
+            f"  2. Read the source code and git history to investigate the issue\n"
+            f"  3. Write your findings into the scaffolded trace.json\n"
+            f"  4. Call trailblazer_validate with trace_path pointing to that trace.json"
+        )
+
+    cmd = [sys.executable, str(COMPILE_SCRIPT), trace_path_str, "--check-only"]
     if args.get("repo_path"):
         cmd.extend(["--repo", args["repo_path"]])
     res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)

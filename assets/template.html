@@ -927,7 +927,8 @@
           <div class="code-top-header">
             <span class="code-file-name" id="story-file-name">path/to/file.py</span>
             <div class="code-actions">
-              <span class="code-link" onclick="copyStoryCode()">Copy</span>
+              <a class="code-link" id="story-repo-link" style="display:none;" target="_blank" rel="noopener">View source ↗</a>
+              <span class="code-link" onclick="copyStoryCode(event)">Copy</span>
             </div>
           </div>
           <table class="code-table" id="story-code-table"></table>
@@ -1013,7 +1014,10 @@
           <div class="code-container">
             <div class="code-top-header">
               <span class="code-file-name" id="code-detail-file"></span>
-              <span class="code-link" onclick="copyDetailCode()">Copy</span>
+              <div class="code-actions">
+                <a class="code-link" id="code-detail-repo-link" style="display:none;" target="_blank" rel="noopener">View source ↗</a>
+                <span class="code-link" onclick="copyDetailCode(event)">Copy</span>
+              </div>
             </div>
             <table class="code-table" id="code-detail-table"></table>
             <div class="code-footer-bar">
@@ -1282,6 +1286,28 @@
       renderStoryStepContent();
     }
 
+    function getRepoFileUrl(file, lineStart, lineEnd) {
+      const repo = traceData.repository || '';
+      const commit = (traceData.issue && traceData.issue.commit) ? traceData.issue.commit : 'main';
+      if (!repo || !file) return null;
+
+      let base = repo.trim();
+      if (!base.startsWith('http://') && !base.startsWith('https://')) {
+        base = `https://${base}`;
+      }
+      base = base.replace(/\.git$/, '');
+
+      if (base.includes('github.com') || base.includes('gitlab.com')) {
+        const hash = lineStart ? (lineEnd && lineEnd !== lineStart ? `#L${lineStart}-L${lineEnd}` : `#L${lineStart}`) : '';
+        const blobKeyword = base.includes('gitlab.com') ? '-/blob' : 'blob';
+        return `${base}/${blobKeyword}/${commit}/${file}${hash}`;
+      } else if (base.includes('bitbucket.org')) {
+        const hash = lineStart ? `#lines-${lineStart}` : '';
+        return `${base}/src/${commit}/${file}${hash}`;
+      }
+      return null;
+    }
+
     function renderStoryStepContent() {
       const trail = traceData.trail || [];
       const stop = trail[currentStoryStep] || trail[0];
@@ -1295,6 +1321,19 @@
 
       document.getElementById('story-file-name').textContent = stop.file;
       document.getElementById('story-code-commit').textContent = `Lines ${stop.lineStart || 1}-${stop.lineEnd || 10} · ${(traceData.issue && traceData.issue.commit ? traceData.issue.commit.slice(0, 7) : 'head')}`;
+
+      // Update source repository link
+      const repoUrl = getRepoFileUrl(stop.file, stop.lineStart, stop.lineEnd);
+      const linkEl = document.getElementById('story-repo-link');
+      if (linkEl) {
+        if (repoUrl) {
+          linkEl.href = repoUrl;
+          linkEl.style.display = 'inline';
+          linkEl.textContent = repoUrl.includes('bitbucket') ? 'View on Bitbucket ↗' : 'View on GitHub ↗';
+        } else {
+          linkEl.style.display = 'none';
+        }
+      }
 
       // Code rendering
       renderCodeTable('story-code-table', stop);
@@ -1619,6 +1658,19 @@
       document.getElementById('code-detail-file').textContent = currentStop.file;
       document.getElementById('code-detail-lines').textContent = `Lines ${currentStop.lineStart || 1}-${currentStop.lineEnd || 10}`;
 
+      // Update source repository link
+      const repoUrl = getRepoFileUrl(currentStop.file, currentStop.lineStart, currentStop.lineEnd);
+      const detailLinkEl = document.getElementById('code-detail-repo-link');
+      if (detailLinkEl) {
+        if (repoUrl) {
+          detailLinkEl.href = repoUrl;
+          detailLinkEl.style.display = 'inline';
+          detailLinkEl.textContent = repoUrl.includes('bitbucket') ? 'View on Bitbucket ↗' : 'View on GitHub ↗';
+        } else {
+          detailLinkEl.style.display = 'none';
+        }
+      }
+
       renderCodeTable('code-detail-table', currentStop);
     }
 
@@ -1689,21 +1741,39 @@
       `).join('') || '<p style="color:var(--text-muted);">No entries.</p>';
     }
 
-    function copyStoryCode() {
+    function copyStoryCode(event) {
       const trail = traceData.trail || [];
       const stop = trail[currentStoryStep];
       if (stop && stop.code && stop.code.lines) {
         navigator.clipboard.writeText(stop.code.lines);
-        alert('Code snippet copied to clipboard');
+        const btn = event ? (event.currentTarget || event.target) : null;
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = 'Copied!';
+          btn.style.color = 'var(--success)';
+          setTimeout(() => {
+            btn.textContent = orig;
+            btn.style.color = '';
+          }, 1500);
+        }
       }
     }
 
-    function copyDetailCode() {
+    function copyDetailCode(event) {
       const trail = traceData.trail || [];
       const stop = trail[activeCodeIndex];
       if (stop && stop.code && stop.code.lines) {
         navigator.clipboard.writeText(stop.code.lines);
-        alert('Code snippet copied to clipboard');
+        const btn = event ? (event.currentTarget || event.target) : null;
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = 'Copied!';
+          btn.style.color = 'var(--success)';
+          setTimeout(() => {
+            btn.textContent = orig;
+            btn.style.color = '';
+          }, 1500);
+        }
       }
     }
 
