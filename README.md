@@ -114,6 +114,24 @@ git clone https://github.com/Ashrith-2001/trailblazer ~/.agents/skills/trailblaz
 
 ---
 
+### ⚡ Claude Code Slash Command Setup (`/trailblazer`)
+
+To get the native **`/trailblazer`** autocomplete slash command directly inside your Claude Code terminal (just like built-in tools):
+
+```bash
+# Run once to register:
+npx trailblazer-agent --install-claude
+# or
+python3 scripts/compile.py --install-claude
+```
+
+Then in any project, open Claude Code and type:
+```text
+/trailblazer explain issue #142
+```
+
+---
+
 ### Instant CLI Preview (Nova Engine Reference Trace)
 
 Preview the interactive visual dashboard immediately:

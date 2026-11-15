@@ -528,9 +528,55 @@ def main():
     parser.add_argument("--prefilter", type=str, default=None, help="Run zero-token regex search on repository clone")
     parser.add_argument("--init", type=str, default=None, metavar="SLUG", help="Scaffold a new .tbz/<slug>/trace.json template")
     parser.add_argument("--watch", action="store_true", help="Watch trace.json for file modifications and automatically recompile")
+    parser.add_argument(
+        "--install-claude",
+        action="store_true",
+        help="Register /trailblazer slash command in Claude Code (~/.claude/commands)",
+    )
 
     args = parser.parse_args()
     script_dir = Path(__file__).resolve().parent
+
+    # Install Claude Code Slash Command Mode
+    if args.install_claude:
+        claude_dir = Path.home() / ".claude"
+        commands_dir = claude_dir / "commands"
+        skills_dir = claude_dir / "skills"
+        commands_dir.mkdir(parents=True, exist_ok=True)
+        skills_dir.mkdir(parents=True, exist_ok=True)
+
+        cmd_file = commands_dir / "trailblazer.md"
+        cmd_content = (
+            "---\n"
+            "description: Follow the trail from an issue to its root cause. Explains an assigned issue as an interactive, 5-tab localhost dashboard (Story, Codebase Map, Flow, Code, Your change). (user)\n"
+            "---\n\n"
+            "Investigate the following issue using Trailblazer:\n"
+            "$ARGUMENTS\n\n"
+            "Investigation instructions:\n"
+            "1. Call `trailblazer_start` with a short issue slug and the question/issue as title.\n"
+            "2. Use `trailblazer_prefilter` to locate candidate symbols locally before reading files.\n"
+            "3. Read only targeted line ranges around relevant functions.\n"
+            "4. Construct the 3 to 6 stop causal trail from entry point to origin to patch target.\n"
+            "5. Fill in `.tbz/<issue-id>/trace.json` with your verified findings.\n"
+            "6. Run `trailblazer_validate` and compile with `serve=true`.\n"
+            "7. Present a concise summary with the problem, root cause, patch target, and the dashboard link at http://127.0.0.1:4200/.\n"
+        )
+        cmd_file.write_text(cmd_content, encoding="utf-8")
+
+        # Link skill directory
+        repo_root = script_dir.parent
+        skill_target = skills_dir / "trailblazer"
+        if (repo_root / "SKILL.md").exists():
+            try:
+                if skill_target.is_symlink() or skill_target.exists():
+                    skill_target.unlink()
+                skill_target.symlink_to(repo_root)
+            except Exception:
+                pass
+
+        print(f"\n{green('✔ Installed /trailblazer slash command in Claude Code:')} {bold(str(cmd_file))}")
+        print(f"Open Claude Code in any project and type: {cyan('/trailblazer')}\n")
+        sys.exit(0)
 
     # Init Mode
     if args.init:
