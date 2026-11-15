@@ -56,11 +56,93 @@ class ValidationError(Exception):
     pass
 
 
+def normalize_trace_data(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Normalizes common field aliases into the canonical trace schema.
+    Ensures seamless compatibility across different agent prompts and skill definitions.
+    """
+    if not isinstance(data, dict):
+        return data
+
+    # 1. Top-level repository
+    if not data.get("repository"):
+        data["repository"] = data.get("repo") or "local/repo"
+
+    # 2. Version
+    if not data.get("version"):
+        data["version"] = SCHEMA_VERSION
+
+    # 3. Summary aliases
+    summary = data.get("summary")
+    if isinstance(summary, dict):
+        if "rootCause" not in summary and "cause" in summary:
+            summary["rootCause"] = summary["cause"]
+        if "patchTarget" not in summary and "fix" in summary:
+            summary["patchTarget"] = summary["fix"]
+
+    # 4. Change blueprint aliases (yourChange -> changeBlueprint)
+    if "changeBlueprint" not in data and "yourChange" in data:
+        yc = data["yourChange"]
+        if isinstance(yc, dict):
+            target_files = yc.get("needsChange") or []
+            cleaned_targets = []
+            for t in target_files:
+                cleaned_targets.append(t.split(":")[0].strip() if isinstance(t, str) else str(t))
+
+            data["changeBlueprint"] = {
+                "targetFiles": cleaned_targets,
+                "mustKeepTrue": (yc.get("keepChecking") or []) + (yc.get("mustNotBreak") or []),
+                "permittedToChange": yc.get("allowToVary") or [],
+                "verificationCommand": yc.get("testToExtend") or yc.get("verificationCommand") or "",
+                "suggestedTestCases": [],
+                "checklist": [yc.get("firstThing")] if yc.get("firstThing") else [],
+                "noChange": yc.get("noChange") or []
+            }
+
+    # 5. Trail stops normalization
+    trail = data.get("trail")
+    if isinstance(trail, list):
+        for idx, stop in enumerate(trail):
+            if not isinstance(stop, dict):
+                continue
+            if not stop.get("id"):
+                stop["id"] = f"stop-{idx + 1}"
+            if "role" not in stop and "stop" in stop:
+                stop["role"] = stop["stop"]
+            if "title" not in stop and "label" in stop:
+                stop["title"] = stop["label"]
+            if "explanation" not in stop and "explain" in stop:
+                stop["explanation"] = stop["explain"]
+            if "code" not in stop:
+                snippet = stop.get("snippet", "")
+                pointer = stop.get("pointer", "")
+                stop["code"] = {"lines": snippet, "pointer": pointer}
+
+    # 6. Flow interactions normalization (steps -> interactions)
+    flow = data.get("flow")
+    if isinstance(flow, dict):
+        if "interactions" not in flow and "steps" in flow:
+            steps = flow.get("steps") or []
+            interactions = []
+            for s in steps:
+                if isinstance(s, dict):
+                    interactions.append({
+                        "from": s.get("from", "Caller"),
+                        "to": s.get("to", "Component"),
+                        "action": s.get("label") or s.get("action", "action"),
+                        "isFailurePoint": s.get("stepType") == "failure" or s.get("isFailurePoint", False),
+                        "error": s.get("error", "")
+                    })
+            flow["interactions"] = interactions
+
+    return data
+
+
 class TraceValidator:
     """Validates trace.json data integrity, bounds, invariants and repo alignment."""
 
     def __init__(self, data: Dict[str, Any], repo_path: Optional[Path] = None):
-        self.data = data
+        self.data = normalize_trace_data(data)
         self.repo = repo_path.resolve() if repo_path and repo_path.exists() else None
         self.errors: List[str] = []
         self.warnings: List[str] = []
@@ -264,6 +346,7 @@ class TraceCompiler:
         if not self.template_path.exists():
             raise FileNotFoundError(f"Template not found at: {self.template_path}")
 
+        data = normalize_trace_data(data)
         template_content = self.template_path.read_text(encoding="utf-8")
 
         # Encode JSON safely, escaping script tags to prevent XSS injection

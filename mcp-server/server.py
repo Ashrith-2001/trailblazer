@@ -208,73 +208,130 @@ def handle_start(args: Dict[str, Any]) -> str:
         except Exception:
             pass
 
-    # Scaffold a minimal valid template the agent should fill in
+    # Scaffold a clean, canonical template the agent should fill in
     template = {
+        "version": "1.0.0",
+        "repository": str(repo_path),
         "issue": {
             "id": issue_id,
             "title": title,
             "url": "",
             "category": category,
-            "tags": []
+            "commit": "HEAD"
         },
         "summary": {
-            "problem": "TODO: one sentence — what goes wrong",
-            "cause": "TODO: one sentence — why it goes wrong (cite file:line)",
-            "fix": "TODO: one sentence — where and how to fix it",
-            "reproductionLevel": "static-analysis"
+            "problem": "TODO: one sentence — what behavior is observed vs expected",
+            "rootCause": "TODO: one sentence — the precise mechanism causing failure (cite file:line)",
+            "patchTarget": "TODO: one sentence — where and how the fix should be introduced"
         },
-        "codeMap": [
-            {
-                "repo": str(repo_path),
-                "paths": [
-                    {"path": "TODO: relevant directory or file", "role": "TODO: role", "onTrail": True}
-                ]
-            }
-        ],
+        "aiPolicy": {
+            "status": "unspecified",
+            "sourceFile": "",
+            "summary": "Check CONTRIBUTING.md or AGENTS.md for AI contribution policy"
+        },
+        "evidence": {
+            "level": "static-analysis",
+            "confidence": 0.9,
+            "commandsRun": [],
+            "whatRan": "Static code analysis and git history inspection",
+            "whatSkipped": "TODO: mention what tests were skipped or not run",
+            "notes": "Verified by reading source code and commit history"
+        },
         "trail": [
             {
-                "stop": "entry",
-                "label": "TODO: entry point label",
-                "file": "TODO: path/to/file.py",
+                "id": "stop-1",
+                "role": "entry",
+                "title": "TODO: Entry point title",
+                "description": "TODO: Brief note on how execution reaches here",
+                "file": "TODO: relative/path/to/file.py",
                 "lineStart": 1,
-                "lineEnd": 1,
-                "snippet": "TODO: paste exact code snippet here",
-                "pointer": "TODO: one sentence annotation",
-                "explain": {
-                    "simple": "TODO: plain-English explanation",
-                    "detailed": "TODO: technical mechanism",
-                    "deep": "TODO: architectural or historical context"
+                "lineEnd": 10,
+                "highlightLines": [5],
+                "explanation": {
+                    "simple": "TODO: Plain-English explanation for any engineer",
+                    "detailed": "TODO: Technical mechanism explaining variables, conditionals, or calls",
+                    "deep": "TODO: Architectural context, historical commits, or design tradeoffs"
+                },
+                "code": {
+                    "lines": "TODO: Exact verbatim code snippet from file",
+                    "pointer": "TODO: Pointer annotation pointing to the critical line"
+                }
+            },
+            {
+                "id": "stop-2",
+                "role": "origin",
+                "title": "TODO: Failure origin title",
+                "description": "TODO: Where the defect originates or assumption fails",
+                "file": "TODO: relative/path/to/file.py",
+                "lineStart": 20,
+                "lineEnd": 30,
+                "highlightLines": [25],
+                "explanation": {
+                    "simple": "TODO: Plain-English explanation of why this goes wrong",
+                    "detailed": "TODO: Technical mechanism of the error or unhandled condition",
+                    "deep": "TODO: Why this code was written this way or what changed historically"
+                },
+                "code": {
+                    "lines": "TODO: Exact verbatim code snippet from file",
+                    "pointer": "TODO: Pointer annotation"
+                }
+            },
+            {
+                "id": "stop-3",
+                "role": "patch",
+                "title": "TODO: Patch location title",
+                "description": "TODO: Exact function or block where fix should be applied",
+                "file": "TODO: relative/path/to/file.py",
+                "lineStart": 35,
+                "lineEnd": 45,
+                "highlightLines": [40],
+                "explanation": {
+                    "simple": "TODO: Plain-English summary of what the fix does",
+                    "detailed": "TODO: Technical mechanism of the fix",
+                    "deep": "TODO: Guardrails to maintain"
+                },
+                "code": {
+                    "lines": "TODO: Verbatim code snippet where fix will be applied",
+                    "pointer": "TODO: Pointer annotation"
                 }
             }
         ],
         "flow": {
-            "actors": ["TODO: Actor1", "TODO: Actor2"],
-            "steps": [
+            "actors": ["Caller", "Service", "Storage"],
+            "interactions": [
                 {
-                    "from": "TODO: Actor1",
-                    "to": "TODO: Actor2",
-                    "label": "TODO: what happens",
-                    "stepType": "normal"
+                    "from": "Caller",
+                    "to": "Service",
+                    "action": "Invokes entry function",
+                    "stopId": "stop-1",
+                    "isFailurePoint": False
+                },
+                {
+                    "from": "Service",
+                    "to": "Storage",
+                    "action": "Executes operation that fails or evaluates invalid state",
+                    "stopId": "stop-2",
+                    "isFailurePoint": True,
+                    "error": "TODO: Observed error or unexpected condition"
                 }
+            ],
+            "omittedSteps": ["Internal runtime initialization", "Logging and telemetry"]
+        },
+        "changeBlueprint": {
+            "targetFiles": ["TODO: relative/path/to/file.py"],
+            "mustKeepTrue": [
+                "TODO: System invariant that must never be broken by this fix"
+            ],
+            "permittedToChange": [
+                "TODO: Implementation details that are allowed to vary"
+            ],
+            "verificationCommand": "TODO: e.g. pytest tests/test_module.py",
+            "suggestedTestCases": [
+                "TODO: Specific edge case test to add"
+            ],
+            "checklist": [
+                "TODO: First concrete action to take when implementing the fix"
             ]
-        },
-        "yourChange": {
-            "needsChange": ["TODO: file + reason"],
-            "noChange": ["TODO: what does NOT need to change"],
-            "keepChecking": ["TODO: invariant to preserve"],
-            "allowToVary": ["TODO: implementation detail that can vary"],
-            "mustNotBreak": ["TODO: behaviour that must stay working"],
-            "firstThing": "TODO: first concrete action to take",
-            "testToExtend": "TODO: existing test to extend or write"
-        },
-        "evidence": {
-            "level": "static-analysis",
-            "notes": ["TODO: add verification notes"]
-        },
-        "aiPolicy": {
-            "status": "unspecified",
-            "source": "",
-            "notes": []
         }
     }
 

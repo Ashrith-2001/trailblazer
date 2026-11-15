@@ -467,8 +467,8 @@
       margin-bottom: 18px;
     }
 
-    /* Mini Horizontal Trail Breadcrumbs */
-    .trail-breadcrumbs {
+    /* Mini Horizontal Trail Step Cards */
+    .trail-step-cards {
       display: flex;
       gap: 10px;
       overflow-x: auto;
@@ -476,7 +476,7 @@
       margin-bottom: 20px;
     }
 
-    .trail-crumb {
+    .trail-step-card {
       flex: 1;
       min-width: 140px;
       background: var(--card-subtle);
@@ -491,29 +491,29 @@
       position: relative;
     }
 
-    .trail-crumb.current {
+    .trail-step-card.current {
       border-color: var(--primary);
       background: var(--primary-subtle);
     }
 
-    .trail-crumb.problem {
+    .trail-step-card.problem {
       border-color: var(--danger-border);
       background: var(--danger-subtle);
     }
 
-    .trail-crumb.patch {
+    .trail-step-card.patch {
       border-color: var(--success-border);
       background: var(--success-subtle);
     }
 
-    .crumb-role-badge {
+    .step-role-badge {
       font-size: 10px;
       font-weight: 700;
       margin-top: 6px;
     }
-    .crumb-role-current { color: var(--primary); }
-    .crumb-role-problem { color: var(--danger); }
-    .crumb-role-patch { color: var(--success); }
+    .step-role-current { color: var(--primary); }
+    .step-role-problem { color: var(--danger); }
+    .step-role-patch { color: var(--success); }
 
     /* Code Block Display */
     .code-container {
@@ -666,7 +666,7 @@
       margin-bottom: 16px;
     }
 
-    .map-breadcrumb-row {
+    .map-context-row {
       display: flex;
       gap: 12px;
       align-items: center;
@@ -919,8 +919,8 @@
         <h2 class="story-title" id="story-step-title">Step Title</h2>
         <p class="story-lead" id="story-step-lead">Step narrative explanation.</p>
 
-        <!-- Horizontal Trail Breadcrumbs -->
-        <div class="trail-breadcrumbs" id="trail-mini-breadcrumbs"></div>
+        <!-- Horizontal Trail Step Cards -->
+        <div class="trail-step-cards" id="trail-mini-steps"></div>
 
         <!-- Code Container -->
         <div class="code-container" id="story-code-container">
@@ -956,7 +956,7 @@
     <div id="tab-2" class="tab-panel">
       <div class="story-card">
         <p class="map-header-lead" id="map-header-lead">Repository package routing architecture.</p>
-        <div class="map-breadcrumb-row">
+        <div class="map-context-row">
           <span>repo</span>
         </div>
         <div class="map-nodes-grid" id="map-nodes-grid"></div>
@@ -1247,36 +1247,36 @@
         stepper.appendChild(node);
       });
 
-      // Mini Breadcrumbs
-      const crumbsBar = document.getElementById('trail-mini-breadcrumbs');
-      crumbsBar.innerHTML = '';
+      // Mini Trail Step Cards
+      const stepsBar = document.getElementById('trail-mini-steps');
+      stepsBar.innerHTML = '';
       trail.forEach((stop, idx) => {
         const isCurrent = idx === currentStoryStep;
         const isProblem = stop.role === 'origin';
         const isPatch = stop.role === 'patch';
 
-        let badgeClass = 'crumb-role-current';
+        let badgeClass = 'step-role-current';
         let badgeText = 'You are here';
-        let crumbClass = isCurrent ? 'current' : '';
+        let stepCardClass = isCurrent ? 'current' : '';
 
         if (isProblem) {
-          crumbClass += ' problem';
-          badgeClass = 'crumb-role-problem';
+          stepCardClass += ' problem';
+          badgeClass = 'step-role-problem';
           badgeText = 'The problem is here';
         } else if (isPatch) {
-          crumbClass += ' patch';
-          badgeClass = 'crumb-role-patch';
+          stepCardClass += ' patch';
+          badgeClass = 'step-role-patch';
           badgeText = 'Your change goes here';
         }
 
         const div = document.createElement('div');
-        div.className = `trail-crumb ${crumbClass}`;
+        div.className = `trail-step-card ${stepCardClass}`;
         div.onclick = () => { currentStoryStep = idx; renderStoryTab(); };
         div.innerHTML = `
           <div style="font-weight:600; font-size:12px; margin-bottom:4px;">${stop.title}</div>
-          ${isCurrent || isProblem || isPatch ? `<div class="crumb-role-badge ${badgeClass}">${badgeText}</div>` : ''}
+          ${isCurrent || isProblem || isPatch ? `<div class="step-role-badge ${badgeClass}">${badgeText}</div>` : ''}
         `;
-        crumbsBar.appendChild(div);
+        stepsBar.appendChild(div);
       });
 
       renderStoryStepContent();
@@ -1382,8 +1382,17 @@
     /* FLOW TAB */
     function renderFlowTab() {
       const flow = traceData.flow || {};
-      const actors = flow.actors || ['Client', 'Worker', 'Queue', 'Redis'];
       const interactions = flow.interactions || [];
+      let actors = flow.actors;
+      if (!actors || actors.length === 0) {
+        // Derive actors from interactions if available
+        const derived = new Set();
+        interactions.forEach(i => {
+          if (i.from) derived.add(i.from);
+          if (i.to) derived.add(i.to);
+        });
+        actors = derived.size > 0 ? Array.from(derived) : ['Caller', 'Component', 'Service'];
+      }
 
       const svg = document.getElementById('sequence-svg');
 
@@ -1616,25 +1625,40 @@
     /* YOUR CHANGE TAB */
     function renderChangeTab() {
       const bp = traceData.changeBlueprint || {};
-      const needs = bp.targetFiles || ['src/engine/worker.py'];
-      document.getElementById('blueprint-needs-change').innerHTML = needs.map(f => `<li><strong>${f}</strong>: patch lifecycle reconnect handler</li>`).join('');
+      const needs = bp.targetFiles || [];
+      const needsEl = document.getElementById('blueprint-needs-change');
+      if (needs.length > 0) {
+        needsEl.innerHTML = needs.map(f => `<li><strong>${escapeHtml(f)}</strong></li>`).join('');
+      } else {
+        needsEl.innerHTML = '<li>Files identified during investigation</li>';
+      }
 
-      document.getElementById('blueprint-no-change').innerHTML = `
-        <li>Queue persistence protocol contract</li>
-        <li>Storage serialization handlers</li>
-      `;
+      const noChangeList = bp.noChange || ['Public APIs outside targeted modules', 'Unrelated service boundaries'];
+      document.getElementById('blueprint-no-change').innerHTML = noChangeList.map(item => `<li>${escapeHtml(item)}</li>`).join('');
 
-      document.getElementById('change-target-symbol').textContent = (needs[0] || 'target_file.py') + ':handle_reconnect';
+      const patchStop = (traceData.trail || []).find(s => s.role === 'patch') || (traceData.trail || [])[0];
+      const targetSymbol = patchStop ? `${patchStop.file}:${patchStop.title}` : (needs[0] || 'Target file');
+      document.getElementById('change-target-symbol').textContent = targetSymbol;
 
-      document.getElementById('change-keep-checking').innerHTML = (bp.mustKeepTrue || []).map(i => `<li>${i}</li>`).join('') || '<li>Maintain thread safety</li>';
-      document.getElementById('change-allow-vary').innerHTML = (bp.permittedToChange || []).map(i => `<li>${i}</li>`).join('') || '<li>Lease cache invalidation timing</li>';
+      const keepChecking = bp.mustKeepTrue || [];
+      document.getElementById('change-keep-checking').innerHTML = keepChecking.length > 0 
+        ? keepChecking.map(i => `<li>${escapeHtml(i)}</li>`).join('')
+        : '<li>Preserve existing system invariants and contracts</li>';
 
-      document.getElementById('change-first-try').textContent = "Verify local lock cache is cleared upon reconnect before resuming the queue consumer polling loop.";
-      document.getElementById('change-must-not-break').innerHTML = `
-        <li>Concurrent job acquisition mutual exclusion</li>
-        <li>Graceful worker shutdown lease release</li>
-      `;
-      document.getElementById('change-test-extend').textContent = bp.verificationCommand || 'pytest tests/test_lifecycle.py';
+      const allowVary = bp.permittedToChange || [];
+      document.getElementById('change-allow-vary').innerHTML = allowVary.length > 0
+        ? allowVary.map(i => `<li>${escapeHtml(i)}</li>`).join('')
+        : '<li>Internal helper structure and variable naming</li>';
+
+      const firstTry = bp.checklist && bp.checklist.length > 0 ? bp.checklist[0] : (bp.firstThing || (traceData.summary ? traceData.summary.patchTarget || traceData.summary.fix : 'Review patch target stop'));
+      document.getElementById('change-first-try').textContent = firstTry;
+
+      const mustNotBreak = bp.mustNotBreak || bp.mustKeepTrue || [];
+      document.getElementById('change-must-not-break').innerHTML = mustNotBreak.length > 0
+        ? mustNotBreak.map(i => `<li>${escapeHtml(i)}</li>`).join('')
+        : '<li>Existing unit tests and baseline functionality</li>';
+
+      document.getElementById('change-test-extend').textContent = bp.verificationCommand || 'Run test suite';
     }
 
     /* MORE SECTION */

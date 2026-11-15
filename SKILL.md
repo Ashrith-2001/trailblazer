@@ -140,20 +140,49 @@ Then stop. Do not dump the whole trace.json into chat.
 
 ## Schema Quick Reference
 
-The full schema is in `references/trace-schema.md`. Key top-level fields:
+The full schema is in `references/trace-schema.md`. Canonical top-level fields:
 
 ```json
 {
-  "issue": { "id", "title", "url", "category", "tags" },
-  "summary": { "problem", "cause", "fix", "reproductionLevel" },
-  "codeMap": [ { "repo", "paths": [ { "path", "role", "onTrail" } ] } ],
-  "trail": [ { "stop", "label", "file", "lineStart", "lineEnd", "snippet", "pointer", "explain": { "simple", "detailed", "deep" } } ],
-  "flow": { "actors": [], "steps": [ { "from", "to", "label", "stepType" } ] },
-  "yourChange": { "needsChange": [], "noChange": [], "keepChecking": [], "allowToVary": [], "mustNotBreak": [], "firstThing", "testToExtend" },
-  "evidence": { "level", "notes": [] },
-  "aiPolicy": { "status", "source", "notes" }
+  "version": "1.0.0",
+  "repository": "owner/repo",
+  "issue": { "id": "142", "title": "...", "url": "...", "category": "bug", "commit": "HEAD" },
+  "summary": { "problem": "...", "rootCause": "...", "patchTarget": "..." },
+  "evidence": { "level": "static-analysis", "whatRan": "...", "whatSkipped": "..." },
+  "trail": [
+    {
+      "id": "stop-1",
+      "role": "entry",
+      "title": "...",
+      "description": "...",
+      "file": "path/to/file.py",
+      "lineStart": 10,
+      "lineEnd": 25,
+      "highlightLines": [15],
+      "explanation": { "simple": "...", "detailed": "...", "deep": "..." },
+      "code": { "lines": "...", "pointer": "..." }
+    }
+  ],
+  "flow": {
+    "actors": ["Caller", "Service", "Storage"],
+    "interactions": [
+      { "from": "Caller", "to": "Service", "action": "...", "stopId": "stop-1", "isFailurePoint": false }
+    ],
+    "omittedSteps": []
+  },
+  "changeBlueprint": {
+    "targetFiles": ["path/to/file.py"],
+    "mustKeepTrue": ["Invariants that must not break"],
+    "permittedToChange": ["Implementation details allowed to vary"],
+    "verificationCommand": "pytest tests/...",
+    "suggestedTestCases": ["..."],
+    "checklist": ["First concrete action"]
+  },
+  "aiPolicy": { "status": "allowed", "sourceFile": "CONTRIBUTING.md", "summary": "..." }
 }
 ```
+
+> **Note:** The compiler also transparently supports common alias variants (e.g. `cause` / `fix` in summary, `yourChange` for `changeBlueprint`, `snippet` / `pointer` for `code`, `steps` for `interactions`).
 
 ---
 
