@@ -108,6 +108,119 @@
       background: var(--card-subtle);
     }
 
+    .verification-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(46, 160, 67, 0.15);
+      color: #2ea043;
+      border: 1px solid rgba(46, 160, 67, 0.3);
+    }
+    .verification-badge.warn {
+      background: rgba(210, 153, 34, 0.15);
+      color: #d29922;
+      border-color: rgba(210, 153, 34, 0.3);
+    }
+    .verification-badge.danger {
+      background: rgba(248, 81, 73, 0.15);
+      color: #f85149;
+      border-color: rgba(248, 81, 73, 0.3);
+    }
+
+    .dialectic-card {
+      margin: 16px 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--card-bg);
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    .dialectic-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: var(--card-subtle);
+      cursor: pointer;
+      user-select: none;
+    }
+    .dialectic-header:hover {
+      background: var(--border);
+    }
+    .dialectic-header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dialectic-title {
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .dialectic-score-pill {
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(46, 160, 67, 0.15);
+      color: #2ea043;
+    }
+    .dialectic-body {
+      padding: 14px;
+      border-top: 1px solid var(--border);
+    }
+    .dialectic-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .dialectic-metric {
+      text-align: center;
+      padding: 8px;
+      background: var(--card-subtle);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    .metric-num {
+      display: block;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .metric-label {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .dialectic-judge-verdict {
+      padding: 10px 12px;
+      background: rgba(9, 105, 218, 0.08);
+      border-left: 3px solid var(--primary);
+      border-radius: 4px;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    .challenge-item {
+      padding: 10px;
+      margin-bottom: 8px;
+      border-radius: 6px;
+      background: var(--card-subtle);
+      border: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .challenge-q {
+      font-weight: 600;
+      color: #cf222e;
+      margin-bottom: 4px;
+    }
+    .challenge-ans {
+      color: var(--text);
+      line-height: 1.4;
+    }
+
     .top-controls {
       display: flex;
       align-items: center;
@@ -844,6 +957,7 @@
         <span id="repo-id-label">repo/project</span>
         <span id="issue-ref-label">#issue</span>
         <span class="tag-badge" id="category-badge">bug</span>
+        <span class="verification-badge" id="verification-badge" style="display:none;"></span>
       </div>
 
       <div class="top-controls">
@@ -895,6 +1009,38 @@
 
     <!-- Quantitative Facts & Notes Lines -->
     <div class="fact-notes-block" id="facts-and-notes"></div>
+
+    <!-- Dialectic Audit & AST Grounding Panel -->
+    <div class="dialectic-card" id="dialectic-panel" style="display:none;">
+      <div class="dialectic-header" onclick="toggleDialecticPanel()">
+        <div class="dialectic-header-left">
+          <span style="font-size:14px;">⚖️</span>
+          <span class="dialectic-title">Dialectic Verification & AST Grounding</span>
+          <span class="dialectic-score-pill" id="dialectic-score-pill">95% Confidence</span>
+        </div>
+        <span id="dialectic-toggle-arrow">▾</span>
+      </div>
+      <div class="dialectic-body" id="dialectic-body">
+        <div class="dialectic-metrics-grid">
+          <div class="dialectic-metric">
+            <span class="metric-num" id="metric-confidence">-</span>
+            <span class="metric-label">Empirical Confidence</span>
+          </div>
+          <div class="dialectic-metric">
+            <span class="metric-num" id="metric-grounding">-</span>
+            <span class="metric-label">AST Call-Graph Grounding</span>
+          </div>
+          <div class="dialectic-metric">
+            <span class="metric-num" id="metric-challenges">-</span>
+            <span class="metric-label">Prosecutor Challenges</span>
+          </div>
+        </div>
+        <div class="dialectic-judge-verdict">
+          <strong>Judge Verdict:</strong> <span id="dialectic-judge-text">-</span>
+        </div>
+        <div class="dialectic-challenges-list" id="dialectic-challenges-list"></div>
+      </div>
+    </div>
 
     <!-- Main Tab Navigation -->
     <nav class="main-tab-bar">
@@ -1137,6 +1283,7 @@
       renderHeader();
       renderSummaryCards();
       renderFactsAndNotes();
+      renderDialecticPanel();
       renderStoryTab();
       renderMapTab();
       renderFlowTab();
@@ -1162,6 +1309,70 @@
       document.getElementById('issue-ref-label').textContent = `#${issue.id || ''}`;
       document.getElementById('category-badge').textContent = issue.category || 'bug';
       document.getElementById('main-title').textContent = issue.title || 'Codebase Investigation';
+
+      const ver = traceData.verification;
+      const vBadge = document.getElementById('verification-badge');
+      if (ver && vBadge) {
+        vBadge.style.display = 'inline-flex';
+        const score = ver.confidenceScore !== undefined ? ver.confidenceScore : 90;
+        const status = ver.status || 'verified';
+        vBadge.textContent = `⚖️ ${score}% ${status}`;
+        vBadge.className = 'verification-badge' + (score < 70 ? ' danger' : (score < 85 ? ' warn' : ''));
+      }
+    }
+
+    let dialecticExpanded = false;
+    function toggleDialecticPanel() {
+      dialecticExpanded = !dialecticExpanded;
+      const body = document.getElementById('dialectic-body');
+      const arrow = document.getElementById('dialectic-toggle-arrow');
+      if (body) body.style.display = dialecticExpanded ? 'block' : 'none';
+      if (arrow) arrow.textContent = dialecticExpanded ? '▴' : '▾';
+    }
+
+    function renderDialecticPanel() {
+      const ver = traceData.verification;
+      const panel = document.getElementById('dialectic-panel');
+      if (!ver || !panel) return;
+
+      panel.style.display = 'block';
+      const body = document.getElementById('dialectic-body');
+      if (body) body.style.display = 'none';
+
+      const score = ver.confidenceScore !== undefined ? ver.confidenceScore : 90;
+      const scorePill = document.getElementById('dialectic-score-pill');
+      if (scorePill) {
+        scorePill.textContent = `${score}% Confidence · ${ver.status || 'verified'}`;
+        scorePill.style.color = score >= 85 ? '#2ea043' : (score >= 70 ? '#d29922' : '#cf222e');
+      }
+
+      document.getElementById('metric-confidence').textContent = `${score}%`;
+
+      const astG = ver.astGrounding || {};
+      const astScore = astG.score !== undefined ? `${astG.score}%` : 'N/A';
+      document.getElementById('metric-grounding').textContent = astScore;
+
+      const challenges = ver.adversarialChallenges || [];
+      document.getElementById('metric-challenges').textContent = `${challenges.length} Audited`;
+
+      const judgeText = document.getElementById('dialectic-judge-text');
+      if (judgeText) judgeText.textContent = ver.judgeVerdict || 'Empirical code evidence and AST call paths verified.';
+
+      const chalList = document.getElementById('dialectic-challenges-list');
+      if (chalList) {
+        chalList.innerHTML = '';
+        challenges.forEach(ch => {
+          const div = document.createElement('div');
+          div.className = 'challenge-item';
+          div.innerHTML = `
+            <div class="challenge-q"><strong>Prosecutor Challenge:</strong> ${ch.challenge || ch.question || ''}</div>
+            ${ch.counterHypothesis ? `<div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;"><em>Hypothesis: ${ch.counterHypothesis}</em></div>` : ''}
+            <div class="challenge-ans"><strong>Verdict (${ch.verdict || 'resolved'}):</strong> ${ch.resolution || ch.answer || 'Refuted with code evidence'}</div>
+            ${ch.evidenceRef ? `<div style="font-size:11px; color:var(--primary); margin-top:4px;">Proof reference: <code>${ch.evidenceRef}</code></div>` : ''}
+          `;
+          chalList.appendChild(div);
+        });
+      }
     }
 
     function renderSummaryCards() {

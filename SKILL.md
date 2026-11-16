@@ -69,14 +69,14 @@ git log --oneline -10        # recent changes
 ```
 Check for AI policy in `CONTRIBUTING.md`, `AGENTS.md`, `.github/copilot-instructions.md`.
 
-### Step 3 — Locate the relevant code (zero-token prefilter)
+### Step 3 — Locate the relevant code (zero-token prefilter & AST symbols)
 ```bash
 git grep -n "ClassName\|function_name\|ErrorMessage" -- "*.py"
 git log --oneline --all -- path/to/file.py
 ```
-Never read a whole file. Read only the pinpointed line ranges.
+Or call MCP tool `trailblazer_find_symbols(query="...")` to look up exact symbol definitions and line boundaries without reading whole files. Never read a whole file — read only pinpointed line ranges.
 
-### Step 4 — Build a 3–6 stop causal chain
+### Step 4 — Build a 3–6 stop causal chain grounded in AST
 Trace execution from trigger → routing → decision point → failure → where to fix:
 
 | Stop type | What it means |
@@ -86,19 +86,17 @@ Trace execution from trigger → routing → decision point → failure → wher
 | `origin` | The exact line where the wrong behaviour starts |
 | `patch` | Where the correct fix must be inserted |
 
-For each stop, capture:
-- `file`, `lineStart`, `lineEnd`
-- Exact code snippet (copy verbatim from the file at current HEAD)
-- Three levels of explanation: `simple`, `detailed`, `deep`
+For each stop, capture `file`, `lineStart`, `lineEnd`, exact verbatim code snippet, and 3 levels of explanation.
+Verify static call-edge connectivity between consecutive stops with `trailblazer_ground_ast` to ensure the call chain physically exists in the codebase.
 
-### Step 5 — Verify claims
-Try to reproduce or find test coverage:
-- `reproduced-real` — ran the project's own test command and saw the failure
-- `reproduced-isolated` — wrote a minimal standalone script that shows the mechanism
-- `static-analysis` — confirmed via reading code + git history only
-- `inferred` — logical deduction; no code run
-
-Mark every unverifiable claim explicitly.
+### Step 5 — Multi-Agent Dialectic Verification (Prosecutor & Judge)
+Never assume your first hypothesis is correct. Run adversarial verification:
+1. **The Prosecutor Challenge**: Call `trailblazer_challenge_stop` or formulate counter-hypotheses:
+   - "Could this variable be null/uninitialized before this line?"
+   - "Does an upstream error handler catch this before it reaches the symptom?"
+   - "Could async/concurrent execution interleave between read and write?"
+2. **Empirical Refutation**: Refute the counter-hypotheses using specific line citations.
+3. **Judge Verdict & Scoring**: Record the audit in the top-level `verification` block (`confidenceScore`, `adversarialChallenges`, `judgeVerdict`).
 
 ### Step 6 — Write `trace.json`
 Create the output directory and write the file:

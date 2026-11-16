@@ -19,6 +19,7 @@ It captures everything discovered about a specific issue in a structured, verifi
 | `flow` | `object` | No | Sequence of component interactions and call path. |
 | `codeMap` | `object` | No | Hierarchical view of involved files and modules. |
 | `changeBlueprint` | `object` | Yes | Invariants, affected scope, checklist, and verification tests. |
+| `verification` | `object` | No | Multi-agent dialectic verification, AST grounding metrics, prosecutor challenges, and judge score. |
 | `metrics` | `array` | No | Quantitative breakdowns (e.g. failure counts, timing, matrices). |
 | `glossary` | `object` | No | Domain/repo-specific terms explained for newcomers. |
 | `contextNotes` | `array` | No | Safety advisories, environment prerequisites, or architecture notes. |
@@ -148,5 +149,37 @@ Each field should be concise and plain-language:
     "Verify no infinite reconnection loop if refresh credentials are revoked",
     "Ensure tests pass without network access"
   ]
+}
+```
+
+---
+
+### 8. `verification` (Dialectic Audit & AST Grounding)
+Captures multi-agent dialectic verification results, prosecutor challenges, AST call-graph grounding scores, and the formal Judge verdict.
+
+```json
+{
+  "confidenceScore": 95,
+  "status": "verified", // "verified" | "speculative"
+  "dialecticRigor": "prosecutor_tested", // "prosecutor_tested" | "ast_grounded"
+  "astGrounding": {
+    "score": 92.5,
+    "verifiedStops": 4,
+    "totalStops": 4,
+    "verifiedEdges": 3,
+    "possibleEdges": 3
+  },
+  "adversarialChallenges": [
+    {
+      "challenger": "Prosecutor",
+      "targetStopId": "stop-2",
+      "challenge": "Does line 84 execute if the socket connection is already closed?",
+      "counterHypothesis": "Early return in event loop might bypass token expiration logic.",
+      "resolution": "Refuted: Stop 1 line 45 confirms socket listener remains attached until disconnect event.",
+      "verdict": "passed",
+      "evidenceRef": "src/transport/socket_client.py:45-52"
+    }
+  ],
+  "judgeVerdict": "Empirical call-graph verified. Root cause verified with test assertion proof."
 }
 ```

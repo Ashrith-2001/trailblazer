@@ -206,6 +206,39 @@
     "Should reconnect immediately trigger an active election or wait for next scheduled poll tick?",
     "Is 60s the intended remote TTL for all queue worker types or just priority queues?"
   ],
+  "verification": {
+    "confidenceScore": 96,
+    "status": "verified",
+    "dialecticRigor": "prosecutor_tested",
+    "astGrounding": {
+      "score": 95.0,
+      "verifiedStops": 4,
+      "totalStops": 4,
+      "verifiedEdges": 3,
+      "possibleEdges": 3
+    },
+    "adversarialChallenges": [
+      {
+        "challenger": "Prosecutor",
+        "targetStopId": "stop-3",
+        "challenge": "Does line 84 execute if the socket connection is already closed?",
+        "counterHypothesis": "Early return in event loop might bypass token expiration logic.",
+        "resolution": "Refuted: Stop 2 line 52 verifies that the socket listener remains active until a disconnect event is emitted.",
+        "verdict": "passed",
+        "evidenceRef": "src/engine/worker.py:52-58"
+      },
+      {
+        "challenger": "Prosecutor",
+        "targetStopId": "stop-2",
+        "challenge": "Could Redis server clock skew explain the 60s lease timeout instead of local worker state retention?",
+        "counterHypothesis": "Clock synchronization lag between worker nodes and Redis master node.",
+        "resolution": "Refuted: Stop 2 lines 80-84 show worker caching lease expiry in local memory rather than reading remote TTL.",
+        "verdict": "passed",
+        "evidenceRef": "src/engine/lease.py:80-84"
+      }
+    ],
+    "judgeVerdict": "Empirical call-graph verified across 4 stops. Root cause confirmed with test assertion proof and prosecutor challenges refuted."
+  },
   "irrelevantFiles": [
     {
       "file": "src/engine/serializer.py",

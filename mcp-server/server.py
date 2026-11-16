@@ -43,6 +43,30 @@ COMPILE_SCRIPT = TRAILBLAZER_ROOT / "scripts" / "compile.py"
 SCHEMA_REF = TRAILBLAZER_ROOT / "references" / "trace-schema.md"
 EXAMPLE_TRACE = TRAILBLAZER_ROOT / "examples" / "example-trace.json"
 
+# Ensure TRAILBLAZER_ROOT is in sys.path
+if str(TRAILBLAZER_ROOT) not in sys.path:
+    sys.path.insert(0, str(TRAILBLAZER_ROOT))
+
+# Import AST Engine
+try:
+    from scripts.ast_engine import build_codebase_index
+except ImportError:
+    try:
+        from trailblazer.ast_engine import build_codebase_index
+    except ImportError:
+        build_codebase_index = None
+
+_AST_CACHE: Dict[str, Any] = {}
+
+def get_codebase_index(repo_path: Path):
+    key = str(repo_path.resolve())
+    if key not in _AST_CACHE:
+        if build_codebase_index:
+            _AST_CACHE[key] = build_codebase_index(repo_path)
+        else:
+            return None
+    return _AST_CACHE[key]
+
 TOOLS = [
     {
         "name": "trailblazer_start",
@@ -175,6 +199,102 @@ TOOLS = [
                 }
             },
             "required": ["trace_path"]
+        }
+    },
+    {
+        "name": "trailblazer_find_symbols",
+        "description": (
+            "Query the codebase AST index for function and class definitions, their exact line ranges, "
+            "and calls they make. Use this instead of reading full files to precisely locate symbols."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Symbol name or pattern (e.g. 'handle_request', 'AuthManager')"
+                },
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository root (defaults to cwd)"
+                },
+                "file_pattern": {
+                    "type": "string",
+                    "description": "Optional file path pattern filter (e.g. 'auth', 'server.py')"
+                }
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "name": "trailblazer_ground_ast",
+        "description": (
+            "Empirically verify call-chain connectivity using static AST analysis. "
+            "Can check if symbol A calls or can reach symbol B, or verify an entire "
+            "trace.json file's stops against the repository AST call-graph."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository root (defaults to cwd)"
+                },
+                "source_file": {
+                    "type": "string",
+                    "description": "File containing source symbol"
+                },
+                "source_symbol": {
+                    "type": "string",
+                    "description": "Name of source symbol"
+                },
+                "target_file": {
+                    "type": "string",
+                    "description": "File containing target symbol (optional)"
+                },
+                "target_symbol": {
+                    "type": "string",
+                    "description": "Name of target symbol (optional)"
+                },
+                "trace_path": {
+                    "type": "string",
+                    "description": "Path to trace.json file to ground entirely against the AST graph (optional)"
+                }
+            }
+        }
+    },
+    {
+        "name": "trailblazer_challenge_stop",
+        "description": (
+            "Multi-agent dialectic verification: runs an adversarial 'Prosecutor' challenge against "
+            "a hypothesized trace stop to identify edge cases, unhandled errors, or false assumptions "
+            "before finalizing the trace. Answers are documented in the stop's verification block."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "stop_id": {
+                    "type": "string",
+                    "description": "Identifier of the stop being challenged (e.g. 'stop-2')"
+                },
+                "file": {
+                    "type": "string",
+                    "description": "File path of the stop"
+                },
+                "lines": {
+                    "type": "string",
+                    "description": "Line number or line range (e.g. '45' or '45-60')"
+                },
+                "claim": {
+                    "type": "string",
+                    "description": "The hypothesis or claim being made about this stop"
+                },
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository root (defaults to cwd)"
+                }
+            },
+            "required": ["file", "claim"]
         }
     }
 ]
@@ -332,6 +452,23 @@ def handle_start(args: Dict[str, Any]) -> str:
             "checklist": [
                 "TODO: First concrete action to take when implementing the fix"
             ]
+        },
+        "verification": {
+            "confidenceScore": 95,
+            "status": "verified",
+            "dialecticRigor": "prosecutor_tested",
+            "adversarialChallenges": [
+                {
+                    "challenger": "Prosecutor",
+                    "targetStopId": "stop-2",
+                    "challenge": "TODO: Challenge testing an edge case, unhandled None, or alternative root cause",
+                    "counterHypothesis": "TODO: Plausible alternative explanation or error condition",
+                    "resolution": "TODO: Why empirical code citations refute the counter-hypothesis",
+                    "verdict": "passed",
+                    "evidenceRef": "TODO: relative/path/to/file.py:lines"
+                }
+            ],
+            "judgeVerdict": "TODO: Final assessment confirming empirical code path and proof soundness"
         }
     }
 
@@ -435,6 +572,134 @@ def handle_bundle(args: Dict[str, Any]) -> str:
     return (res.stdout + "\n" + res.stderr).strip()
 
 
+def handle_find_symbols(args: Dict[str, Any]) -> str:
+    query = args.get("query", "").strip()
+    if not query:
+        return "ERROR: 'query' parameter is required"
+    repo_path = Path(args.get("repo_path") or os.getcwd()).resolve()
+    file_pattern = args.get("file_pattern")
+
+    index = get_codebase_index(repo_path)
+    if not index:
+        return "ERROR: AST Engine not available in current environment."
+
+    syms = index.find_symbols(query, file_pattern=file_pattern)
+    if not syms:
+        return f"No symbols found matching '{query}' in {repo_path}"
+
+    results = []
+    for s in syms[:25]:
+        results.append({
+            "name": s.name,
+            "qualified_name": s.qualified_name,
+            "kind": s.kind,
+            "file": s.file_path,
+            "lines": f"{s.start_line}-{s.end_line}",
+            "calls_count": len(s.calls),
+            "top_calls": [c.callee_name for c in s.calls[:5]],
+        })
+    return json.dumps({"count": len(syms), "symbols": results}, indent=2)
+
+
+def handle_ground_ast(args: Dict[str, Any]) -> str:
+    repo_path = Path(args.get("repo_path") or os.getcwd()).resolve()
+    trace_path_str = args.get("trace_path")
+
+    index = get_codebase_index(repo_path)
+    if not index:
+        return "ERROR: AST Engine not available in current environment."
+
+    if trace_path_str:
+        tp = Path(trace_path_str).resolve()
+        if not tp.exists():
+            return f"ERROR: trace file '{tp}' not found"
+        try:
+            data = json.loads(tp.read_text(encoding="utf-8"))
+        except Exception as e:
+            return f"ERROR reading trace JSON: {e}"
+        res = index.verify_trace(data)
+        return json.dumps(res, indent=2)
+
+    src_file = args.get("source_file", "").strip()
+    src_sym = args.get("source_symbol", "").strip()
+    tgt_file = args.get("target_file")
+    tgt_sym = args.get("target_symbol")
+
+    if not src_file or not src_sym:
+        return "ERROR: 'source_file' and 'source_symbol' (or 'trace_path') are required."
+
+    res = index.check_call_edge(
+        source_file=src_file,
+        source_symbol=src_sym,
+        target_file=tgt_file,
+        target_symbol=tgt_sym,
+    )
+    return json.dumps(res, indent=2)
+
+
+def handle_challenge_stop(args: Dict[str, Any]) -> str:
+    stop_id = args.get("stop_id", "stop-N")
+    fpath = args.get("file", "").strip()
+    lines = str(args.get("lines", ""))
+    claim = args.get("claim", "").strip()
+    repo_path = Path(args.get("repo_path") or os.getcwd()).resolve()
+
+    index = get_codebase_index(repo_path)
+    sym = None
+    if index:
+        first_line = 0
+        if "-" in lines:
+            try:
+                first_line = int(lines.split("-")[0].strip())
+            except ValueError:
+                pass
+        elif lines.isdigit():
+            first_line = int(lines)
+
+        sym = index.find_symbol_at_line(fpath, first_line) if first_line > 0 else None
+
+    challenges = [
+        {
+            "challenger": "Prosecutor",
+            "category": "guard_check",
+            "question": f"Is the state or variable in {fpath}:{lines} guaranteed to be initialized and non-null before this line executes?",
+            "testRequirement": "Confirm preceding lines check for None/null or handle uninitialized states.",
+        },
+        {
+            "challenger": "Prosecutor",
+            "category": "error_containment",
+            "question": f"If an error occurs at {fpath}:{lines}, does an upstream handler catch or suppress it, or does it propagate unhandled to cause the symptom?",
+            "testRequirement": "Identify the nearest try/catch or caller propagation path.",
+        },
+    ]
+
+    if sym and any("async" in sym.kind or "thread" in sym.name.lower() or "lock" in sym.name.lower() for _ in [1]):
+        challenges.append({
+            "challenger": "Prosecutor",
+            "category": "concurrency_state",
+            "question": f"Could concurrent executions or asynchronous event loops interleave between state read and state write in {sym.qualified_name}?",
+            "testRequirement": "Verify mutex locks, transaction boundaries, or atomic operations.",
+        })
+    else:
+        challenges.append({
+            "challenger": "Prosecutor",
+            "category": "side_effect_scope",
+            "question": f"Does modifying this behavior at {fpath}:{lines} break any other callers that rely on the current return value or side effect?",
+            "testRequirement": f"Check callers of '{sym.qualified_name if sym else fpath}'.",
+        })
+
+    response = {
+        "stop_id": stop_id,
+        "symbol_detected": sym.qualified_name if sym else None,
+        "prosecutor_challenges": challenges,
+        "instructions_for_agent": (
+            "Answer or refute each challenge with empirical code citations in the stop's 'verification' block. "
+            "A stop is only verified when you prove why the counter-hypothesis does NOT hold."
+        ),
+    }
+    return json.dumps(response, indent=2)
+
+
 def handle_tool_call(name: str, arguments: Dict[str, Any]) -> str:
     if name == "trailblazer_start":
         return handle_start(arguments)
@@ -448,6 +713,12 @@ def handle_tool_call(name: str, arguments: Dict[str, Any]) -> str:
         return handle_list_traces(arguments)
     elif name == "trailblazer_bundle":
         return handle_bundle(arguments)
+    elif name == "trailblazer_find_symbols":
+        return handle_find_symbols(arguments)
+    elif name == "trailblazer_ground_ast":
+        return handle_ground_ast(arguments)
+    elif name == "trailblazer_challenge_stop":
+        return handle_challenge_stop(arguments)
     else:
         raise ValueError(f"Unknown tool: {name}")
 

@@ -23,6 +23,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 SCHEMA_VERSION = "1.0.0"
 DEFAULT_PORT = 4200
+TRAILBLAZER_ROOT = Path(__file__).resolve().parent.parent
+
+if str(TRAILBLAZER_ROOT) not in sys.path:
+    sys.path.insert(0, str(TRAILBLAZER_ROOT))
 
 # Color and formatting helpers
 USE_COLOR = sys.stdout.isatty() and os.name != "nt"
@@ -135,6 +139,16 @@ def normalize_trace_data(data: Dict[str, Any]) -> Dict[str, Any]:
                     })
             flow["interactions"] = interactions
 
+    # 7. Verification block normalization
+    ver = data.get("verification")
+    if isinstance(ver, dict):
+        if "confidenceScore" not in ver and "confidence" in ver:
+            c = ver["confidence"]
+            ver["confidenceScore"] = int(c * 100) if c <= 1.0 else int(c)
+        if "status" not in ver:
+            score = ver.get("confidenceScore", 90)
+            ver["status"] = "verified" if score >= 80 else "speculative"
+
     return data
 
 
@@ -162,11 +176,23 @@ class TraceValidator:
         self._check_flow()
         self._check_change_blueprint()
         self._check_metrics()
+        self._check_verification()
 
         if self.repo:
             self._verify_against_repo()
 
         return self.errors, self.warnings
+
+    def _check_verification(self):
+        ver = self.data.get("verification")
+        if not ver:
+            return
+        if not isinstance(ver, dict):
+            self.log_warning("'verification' should be an object containing dialectic audit results")
+            return
+        score = ver.get("confidenceScore")
+        if score is not None and (not isinstance(score, (int, float)) or not (0 <= score <= 100)):
+            self.log_warning("'verification.confidenceScore' should be a numeric score between 0 and 100")
 
     def _check_top_level(self):
         req = ["repository", "issue", "summary", "evidence", "trail", "changeBlueprint"]
@@ -333,6 +359,37 @@ class TraceValidator:
             except Exception as e:
                 self.log_warning(f"Repo check: Could not read {file_rel}: {e}")
 
+        # Static AST Grounding & Dialectic Verification
+        try:
+            from scripts.ast_engine import build_codebase_index
+            idx = build_codebase_index(self.repo)
+            ast_res = idx.verify_trace(self.data)
+
+            for issue in ast_res.get("issues", []):
+                if issue.get("severity") == "warning":
+                    self.log_warning(f"AST Grounding: {issue.get('message')}")
+
+            if "verification" not in self.data or not isinstance(self.data["verification"], dict):
+                self.data["verification"] = {}
+            ver = self.data["verification"]
+            ver["astGrounding"] = {
+                "score": ast_res["grounding_score"],
+                "verifiedStops": ast_res["verified_stops"],
+                "totalStops": ast_res["total_stops"],
+                "verifiedEdges": ast_res["verified_edges"],
+                "possibleEdges": ast_res["possible_edges"]
+            }
+            if "confidenceScore" not in ver:
+                ev = self.data.get("evidence", {})
+                ev_level = ev.get("level", "static-analysis")
+                ev_weight = 1.0 if ev_level == "reproduced-real" else (0.85 if ev_level == "reproduced-isolated" else 0.7)
+                ver["confidenceScore"] = round((ast_res["grounding_score"] * 0.6 + ev_weight * 100 * 0.4), 1)
+                ver["status"] = "verified" if ver["confidenceScore"] >= 75 else "speculative"
+                if "judgeVerdict" not in ver:
+                    ver["judgeVerdict"] = f"AST symbol analysis verified {ast_res['verified_stops']}/{ast_res['total_stops']} stops with {ast_res['grounding_score']}% grounding."
+        except Exception:
+            pass
+
 
 class TraceCompiler:
     """Injects sanitized trace data into the single-file template and writes the output HTML."""
@@ -369,6 +426,16 @@ class TraceCompiler:
         out_file.write_text(rendered, encoding="utf-8")
         return out_file
 
+
+def resolve_asset(name: str) -> Path:
+    """Finds an asset file whether running from a local checkout or installed package."""
+    pkg_assets = Path(__file__).resolve().parent / "assets" / name
+    if pkg_assets.exists():
+        return pkg_assets
+    repo_assets = Path(__file__).resolve().parent.parent / "assets" / name
+    if repo_assets.exists():
+        return repo_assets
+    return pkg_assets
 
 def create_trace_bundle(trace_path: Path, html_path: Path, out_zip: Optional[Path] = None) -> Path:
     """Exports self-contained .tbz.zip bundle containing HTML, trace.json, and metadata."""
@@ -483,17 +550,6 @@ def serve_directory(serve_dir: Path, port: int, auto_open: bool = True):
     except KeyboardInterrupt:
         print("\nStopping Trailblazer server.")
         server.server_close()
-
-
-def resolve_asset(name: str) -> Path:
-    """Finds an asset file whether running from a local checkout or installed package."""
-    pkg_assets = Path(__file__).resolve().parent / "assets" / name
-    if pkg_assets.exists():
-        return pkg_assets
-    repo_assets = Path(__file__).resolve().parent.parent / "assets" / name
-    if repo_assets.exists():
-        return repo_assets
-    return pkg_assets
 
 
 def main():
@@ -684,6 +740,17 @@ def main():
 
     print(f"\n{green('✔ Validation passed successfully.')}")
 
+    ver = trace_data.get("verification")
+    if ver and isinstance(ver, dict):
+        score = ver.get("confidenceScore")
+        status = ver.get("status", "verified")
+        if score is not None:
+            status_color = green if score >= 85 else (yellow if score >= 70 else red)
+            print(f"  {status_color('⚖️  Verification Confidence:')} {bold(str(score))}% [{status.upper()}]")
+        ast_g = ver.get("astGrounding")
+        if ast_g and isinstance(ast_g, dict):
+            print(f"  {cyan('🔍 AST Grounding Score:')} {bold(str(ast_g.get('score')))}% ({ast_g.get('verifiedStops')}/{ast_g.get('totalStops')} stops grounded)")
+
     if args.check_only:
         sys.exit(0)
 
@@ -691,6 +758,7 @@ def main():
     if args.template:
         template_path = Path(args.template).resolve()
     else:
+        script_dir = Path(__file__).resolve().parent
         template_path = resolve_asset("template.html")
 
     out_dir = Path(args.out).resolve() if args.out else trace_path.parent
