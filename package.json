@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Visual, verified codebase issue investigator and interactive dashboard for developers and AI agents.",
   "main": "bin/trailblazer.js",
+  "scripts": {
+    "test": "python3 -m unittest discover tests"
+  },
   "bin": {
     "trailblazer": "./bin/trailblazer.js",
     "trailblazer-mcp": "./bin/trailblazer-mcp.js"
